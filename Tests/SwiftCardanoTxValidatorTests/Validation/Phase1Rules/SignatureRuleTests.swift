@@ -1,0 +1,220 @@
+import Testing
+import Foundation
+import SwiftCardanoCore
+import SwiftNcal
+@testable import SwiftCardanoTxValidator
+
+// MARK: - SignatureRule Tests
+
+@Suite("SignatureRule")
+struct SignatureRuleTests {
+
+    // MARK: - Smoke tests
+
+    @Test("SignatureRule name is correct")
+    func ruleName() {
+        #expect(SignatureRule().name == "signature")
+    }
+
+    @Test("SignatureRule returns empty when no vkey witnesses")
+    func noVkeyWitnesses() throws {
+        let pp = try loadProtocolParams()
+        let rule = SignatureRule()
+
+        let txId = TransactionId(payload: Data(repeating: 0xB0, count: 32))
+        let input = TransactionInput(transactionId: txId, index: 0)
+        let addr = try Address(
+            paymentPart: .verificationKeyHash(
+                VerificationKeyHash(payload: Data(repeating: 0x01, count: 28))
+            ),
+            network: .testnet
+        )
+        let body = TransactionBody(
+            inputs: .list([input]),
+            outputs: [TransactionOutput(address: addr, amount: Value(coin: 2_000_000))],
+            fee: 200_000
+        )
+        let tx = Transaction(transactionBody: body, transactionWitnessSet: TransactionWitnessSet())
+        let issues = try rule.validate(transaction: tx, context: ValidationContext(), protocolParams: pp)
+        #expect(issues.isEmpty)
+    }
+
+    // MARK: - Valid signature passes
+
+    @Test("SignatureRule passes for correctly signed transaction")
+    func validSignaturePasses() throws {
+        let pp = try loadProtocolParams()
+        let rule = SignatureRule()
+
+        // Generate a real key pair
+        let signingKey = try SigningKey.generate()
+        let vkeyBytes = signingKey.verifyKey.bytes
+
+        // Build a transaction body
+        let txId = TransactionId(payload: Data(repeating: 0xB1, count: 32))
+        let input = TransactionInput(transactionId: txId, index: 0)
+        let vkh = VerificationKeyHash(payload: Data(repeating: 0x01, count: 28))
+        let addr = try Address(paymentPart: .verificationKeyHash(vkh), network: .testnet)
+        let body = TransactionBody(
+            inputs: .list([input]),
+            outputs: [TransactionOutput(address: addr, amount: Value(coin: 2_000_000))],
+            fee: 200_000
+        )
+
+        // Sign the body CBOR
+        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+        let signed = try signingKey.sign(message: txBodyHash)
+        let sigData = signed.getSignature
+
+        let vkey = try VerificationKeyType(from: .bytes(vkeyBytes))
+        let vkw = VerificationKeyWitness(vkey: vkey, signature: sigData)
+        let witnessSet = TransactionWitnessSet(vkeyWitnesses: .list([vkw]))
+        let tx = Transaction(transactionBody: body, transactionWitnessSet: witnessSet)
+
+        // Provide a resolved input so the key hash is in the required set
+        let resolvedOutput = TransactionOutput(address: addr, amount: Value(coin: 5_000_000))
+        let utxo = UTxO(input: input, output: resolvedOutput)
+        let ctx = ValidationContext(resolvedInputs: [utxo])
+
+        let issues = try rule.validate(transaction: tx, context: ctx, protocolParams: pp)
+        let sigIssues = issues.filter { $0.kind == .invalidSignature }
+        #expect(sigIssues.isEmpty, "Expected no invalidSignature for correctly signed tx")
+    }
+
+    // MARK: - Tampered signature emits invalidSignature
+
+    @Test("SignatureRule emits invalidSignature for tampered signature")
+    func tamperedSignature() throws {
+        let pp = try loadProtocolParams()
+        let rule = SignatureRule()
+
+        let signingKey = try SigningKey.generate()
+        let vkeyBytes = signingKey.verifyKey.bytes
+
+        let txId = TransactionId(payload: Data(repeating: 0xB2, count: 32))
+        let input = TransactionInput(transactionId: txId, index: 0)
+        let addr = try Address(
+            paymentPart: .verificationKeyHash(
+                VerificationKeyHash(payload: Data(repeating: 0x02, count: 28))
+            ),
+            network: .testnet
+        )
+        let body = TransactionBody(
+            inputs: .list([input]),
+            outputs: [TransactionOutput(address: addr, amount: Value(coin: 2_000_000))],
+            fee: 200_000
+        )
+
+        // Sign, then tamper with the signature
+        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+        let signed = try signingKey.sign(message: txBodyHash)
+        var sigData = signed.getSignature
+        // Flip a byte to invalidate
+        if sigData.count > 0 {
+            sigData[0] ^= 0xFF
+        }
+
+        let vkey = try VerificationKeyType(from: .bytes(vkeyBytes))
+        let vkw = VerificationKeyWitness(vkey: vkey, signature: sigData)
+        let witnessSet = TransactionWitnessSet(vkeyWitnesses: .list([vkw]))
+        let tx = Transaction(transactionBody: body, transactionWitnessSet: witnessSet)
+
+        let issues = try rule.validate(transaction: tx, context: ValidationContext(), protocolParams: pp)
+        let sigIssues = issues.filter { $0.kind == .invalidSignature }
+        #expect(!sigIssues.isEmpty, "Expected invalidSignature for tampered signature")
+    }
+
+    // MARK: - Missing vkey witness for key-locked input
+
+    @Test("SignatureRule emits missingRequiredSigner for key-locked input without witness")
+    func missingVkeyForKeyLockedInput() throws {
+        let pp = try loadProtocolParams()
+        let rule = SignatureRule()
+
+        // Generate a key pair for the witness (wrong key)
+        let signingKey = try SigningKey.generate()
+        let vkeyBytes = signingKey.verifyKey.bytes
+
+        // The input is locked by a different key hash
+        let inputKeyHash = VerificationKeyHash(payload: Data(repeating: 0x03, count: 28))
+        let addr = try Address(paymentPart: .verificationKeyHash(inputKeyHash), network: .testnet)
+
+        let txId = TransactionId(payload: Data(repeating: 0xB3, count: 32))
+        let input = TransactionInput(transactionId: txId, index: 0)
+
+        let body = TransactionBody(
+            inputs: .list([input]),
+            outputs: [TransactionOutput(address: addr, amount: Value(coin: 1_500_000))],
+            fee: 200_000
+        )
+
+        // Sign with the wrong key — signature is valid for this key but the input
+        // requires a different key hash
+        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+        let signed = try signingKey.sign(message: txBodyHash)
+
+        let vkey = try VerificationKeyType(from: .bytes(vkeyBytes))
+        let vkw = VerificationKeyWitness(vkey: vkey, signature: signed.getSignature)
+        let witnessSet = TransactionWitnessSet(vkeyWitnesses: .list([vkw]))
+        let tx = Transaction(transactionBody: body, transactionWitnessSet: witnessSet)
+
+        let resolvedOutput = TransactionOutput(address: addr, amount: Value(coin: 5_000_000))
+        let utxo = UTxO(input: input, output: resolvedOutput)
+        let ctx = ValidationContext(resolvedInputs: [utxo])
+
+        let issues = try rule.validate(transaction: tx, context: ctx, protocolParams: pp)
+        let missingIssues = issues.filter { $0.kind == .missingRequiredSigner }
+        #expect(!missingIssues.isEmpty,
+            "Expected missingRequiredSigner for key-locked input with wrong witness key")
+    }
+
+    // MARK: - Extraneous vkey witness
+
+    @Test("SignatureRule emits extraneousSignature warning for unrequired witness")
+    func extraneousVkeyWitness() throws {
+        let pp = try loadProtocolParams()
+        let rule = SignatureRule()
+
+        // Generate two key pairs — one required, one extraneous
+        let requiredKey = try SigningKey.generate()
+        let extraKey = try SigningKey.generate()
+
+        // Hash the required key to use as the input payment address
+        let reqVkeyBytes = requiredKey.verifyKey.bytes
+        let reqHashBytes = try Hash().blake2b(data: reqVkeyBytes, digestSize: 28, encoder: RawEncoder.self)
+        let inputKeyHash = VerificationKeyHash(payload: reqHashBytes)
+        let addr = try Address(paymentPart: .verificationKeyHash(inputKeyHash), network: .testnet)
+
+        let txId = TransactionId(payload: Data(repeating: 0xB4, count: 32))
+        let input = TransactionInput(transactionId: txId, index: 0)
+
+        let body = TransactionBody(
+            inputs: .list([input]),
+            outputs: [TransactionOutput(address: addr, amount: Value(coin: 1_500_000))],
+            fee: 200_000
+        )
+
+        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+
+        // Both keys sign — one is required, one is not
+        let reqSigned = try requiredKey.sign(message: txBodyHash)
+        let extraSigned = try extraKey.sign(message: txBodyHash)
+
+        let reqVkey = try VerificationKeyType(from: .bytes(requiredKey.verifyKey.bytes))
+        let extraVkey = try VerificationKeyType(from: .bytes(extraKey.verifyKey.bytes))
+        let reqVkw = VerificationKeyWitness(vkey: reqVkey, signature: reqSigned.getSignature)
+        let extraVkw = VerificationKeyWitness(vkey: extraVkey, signature: extraSigned.getSignature)
+
+        let witnessSet = TransactionWitnessSet(vkeyWitnesses: .list([reqVkw, extraVkw]))
+        let tx = Transaction(transactionBody: body, transactionWitnessSet: witnessSet)
+
+        let resolvedOutput = TransactionOutput(address: addr, amount: Value(coin: 5_000_000))
+        let utxo = UTxO(input: input, output: resolvedOutput)
+        let ctx = ValidationContext(resolvedInputs: [utxo])
+
+        let issues = try rule.validate(transaction: tx, context: ctx, protocolParams: pp)
+        let extraIssues = issues.filter { $0.kind == .extraneousSignature && $0.isWarning }
+        #expect(!extraIssues.isEmpty,
+            "Expected extraneousSignature warning for unrequired witness")
+    }
+}
