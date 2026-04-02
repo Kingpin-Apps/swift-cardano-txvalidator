@@ -22,6 +22,9 @@ public struct VotingRule: ValidationRule {
         protocolParams: ProtocolParameters
     ) throws -> [ValidationError] {
 
+        let era = context.era ?? .conway
+        guard era >= .conway else { return [] }
+
         guard let votingProcedures = transaction.transactionBody.votingProcedures else {
             return []
         }

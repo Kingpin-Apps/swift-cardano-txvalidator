@@ -181,7 +181,7 @@ struct RegistrationRuleTests {
 
     @Test("wrongRetirementEpoch when retirement epoch is out of bounds")
     func wrongRetirementEpoch() throws {
-        let pp = try loadProtocolParams()
+        let _ = try loadProtocolParams()
         let poolKH = makePoolKeyHash(0x22)
         let poolId = "\(poolKH)"
 
@@ -295,7 +295,7 @@ struct RegistrationRuleTests {
             )
         )
         // Empty committee lists = unknown
-        let ctx = ValidationContext(
+        _ = ValidationContext(
             currentCommitteeMembers: [],
             potentialCommitteeMembers: []
         )

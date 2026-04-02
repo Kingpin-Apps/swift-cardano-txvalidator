@@ -34,6 +34,8 @@ public struct RegistrationRule: ValidationRule {
             return []
         }
 
+        let era = context.era ?? .conway
+
         // Build initial registration state from context
         var state = RegistrationState()
         state.loadInitialState(from: context)
@@ -50,6 +52,7 @@ public struct RegistrationRule: ValidationRule {
                 fieldPath: fieldPath,
                 state: &state,
                 context: context,
+                era: era,
                 protocolParams: protocolParams,
                 issues: &issues
             )
@@ -202,6 +205,7 @@ private extension RegistrationRule {
         fieldPath: String,
         state: inout RegistrationState,
         context: ValidationContext,
+        era: Era,
         protocolParams: ProtocolParameters,
         issues: inout [ValidationError]
     ) {
@@ -214,12 +218,16 @@ private extension RegistrationRule {
             )
 
         case .register(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             validateStakeRegistration(
                 id: "\(c.stakeCredential)", certIndex: certIndex, fieldPath: fieldPath,
                 state: state, issues: &issues
             )
 
         case .stakeRegisterDelegate(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             let accountId = "\(c.stakeCredential)"
             let poolId = "\(c.poolKeyHash)"
             validateStakeRegistration(
@@ -232,6 +240,8 @@ private extension RegistrationRule {
             )
 
         case .voteRegisterDelegate(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             let accountId = "\(c.stakeCredential)"
             let drepId = "\(c.drep)"
             validateStakeRegistration(
@@ -244,6 +254,8 @@ private extension RegistrationRule {
             )
 
         case .stakeVoteRegisterDelegate(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             let accountId = "\(c.stakeCredential)"
             let poolId = "\(c.poolKeyHash)"
             let drepId = "\(c.drep)"
@@ -268,6 +280,8 @@ private extension RegistrationRule {
             )
 
         case .unregister(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             validateStakeDeregistration(
                 id: "\(c.stakeCredential)", certIndex: certIndex, fieldPath: fieldPath,
                 state: state, context: context, issues: &issues
@@ -287,6 +301,8 @@ private extension RegistrationRule {
             )
 
         case .voteDelegate(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             let accountId = "\(c.stakeCredential)"
             let drepId = "\(c.drep)"
             validateStakeExists(
@@ -299,6 +315,8 @@ private extension RegistrationRule {
             )
 
         case .stakeVoteDelegate(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             let accountId = "\(c.stakeCredential)"
             let poolId = "\(c.poolKeyHash)"
             let drepId = "\(c.drep)"
@@ -331,8 +349,8 @@ private extension RegistrationRule {
                 ))
             }
 
-            // Pool cost too low
-            if c.poolParams.cost < protocolParams.minPoolCost {
+            // Pool cost too low (minPoolCost introduced in Alonzo)
+            if era >= .alonzo && c.poolParams.cost < protocolParams.minPoolCost {
                 issues.append(ValidationError(
                     kind: .stakePoolCostTooLow,
                     fieldPath: fieldPath,
@@ -384,6 +402,8 @@ private extension RegistrationRule {
 
         // ── DRep registration ────────────────────────────────────────
         case .registerDRep(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             let drepId = "\(c.drepCredential)"
 
             // Duplicate in tx
@@ -410,6 +430,8 @@ private extension RegistrationRule {
 
         // ── DRep deregistration ──────────────────────────────────────
         case .unRegisterDRep(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             let drepId = "\(c.drepCredential)"
             if !state.isDRepRegistered(drepId) {
                 issues.append(ValidationError(
@@ -422,6 +444,8 @@ private extension RegistrationRule {
 
         // ── DRep update ──────────────────────────────────────────────
         case .updateDRep(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             let drepId = "\(c.drepCredential)"
             if !state.isDRepRegistered(drepId) {
                 issues.append(ValidationError(
@@ -434,6 +458,8 @@ private extension RegistrationRule {
 
         // ── Committee hot auth ───────────────────────────────────────
         case .authCommitteeHot(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             let coldId = "\(c.committeeColdCredential)"
             let hotId = "\(c.committeeHotCredential)"
 
@@ -490,6 +516,8 @@ private extension RegistrationRule {
 
         // ── Committee cold resign ────────────────────────────────────
         case .resignCommitteeCold(let c):
+            // Conway+ only
+            guard era >= .conway else { break }
             let coldId = "\(c.committeeColdCredential)"
 
             // Previously resigned on-chain

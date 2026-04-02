@@ -35,6 +35,7 @@ public struct WitnessRule: ValidationRule {
 
         let body = transaction.transactionBody
         let witnesses = transaction.transactionWitnessSet
+        let era = context.era ?? .conway
 
         // Build a map of resolved UTxOs keyed by "txId#index" for fast lookups.
         let resolvedMap: [String: TransactionOutput] = Dictionary(
@@ -103,23 +104,27 @@ public struct WitnessRule: ValidationRule {
             }
         }
 
-        // Plutus V2
+        // Plutus V2 (Babbage+)
         var plutusV2WitnessByHash: [String: PlutusV2Script] = [:]
-        for s in witnesses.plutusV2Script?.asList ?? [] {
-            if let sh = try? scriptHash(script: .plutusV2Script(s)) {
-                let hex = sh.payload.toHex
-                plutusV2WitnessByHash[hex] = s
-                plutusV2RequiredHashes.insert(hex)
+        if era >= .babbage {
+            for s in witnesses.plutusV2Script?.asList ?? [] {
+                if let sh = try? scriptHash(script: .plutusV2Script(s)) {
+                    let hex = sh.payload.toHex
+                    plutusV2WitnessByHash[hex] = s
+                    plutusV2RequiredHashes.insert(hex)
+                }
             }
         }
 
-        // Plutus V3
+        // Plutus V3 (Conway+)
         var plutusV3WitnessByHash: [String: PlutusV3Script] = [:]
-        for s in witnesses.plutusV3Script?.asList ?? [] {
-            if let sh = try? scriptHash(script: .plutusV3Script(s)) {
-                let hex = sh.payload.toHex
-                plutusV3WitnessByHash[hex] = s
-                plutusV3RequiredHashes.insert(hex)
+        if era >= .conway {
+            for s in witnesses.plutusV3Script?.asList ?? [] {
+                if let sh = try? scriptHash(script: .plutusV3Script(s)) {
+                    let hex = sh.payload.toHex
+                    plutusV3WitnessByHash[hex] = s
+                    plutusV3RequiredHashes.insert(hex)
+                }
             }
         }
 
@@ -257,7 +262,8 @@ public struct WitnessRule: ValidationRule {
             if let datumOption = output.datumOption {
                 switch datumOption.datum {
                 case .data:
-                    hasDatumInline = true
+                    // Inline datums are only valid in Babbage+
+                    hasDatumInline = era >= .babbage
                     hasDatumHash   = false
                 case .datumHash(let dh):
                     hasDatumInline = false

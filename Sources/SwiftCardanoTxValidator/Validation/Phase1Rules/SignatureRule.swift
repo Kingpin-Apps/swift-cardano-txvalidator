@@ -29,17 +29,17 @@ public struct SignatureRule: ValidationRule {
         let body = transaction.transactionBody
         let witnesses = transaction.transactionWitnessSet
         let vkeyWitnesses = witnesses.vkeyWitnesses?.asList ?? []
+        let bootstrapWitnesses = witnesses.bootstrapWitness?.asList ?? []
 
-        guard !vkeyWitnesses.isEmpty else {
-            // No vkey witnesses at all — other rules (RequiredSignersRule, etc.) will
-            // catch missing witnesses.  Nothing for us to verify here.
+        // Nothing to verify if neither vkey nor bootstrap witnesses are present.
+        guard !vkeyWitnesses.isEmpty || !bootstrapWitnesses.isEmpty else {
             return []
         }
 
         var issues: [ValidationError] = []
 
         // -----------------------------------------------------------------------
-        // MARK: 1. Pre-compute witness key hashes
+        // MARK: 1. Pre-compute vkey witness key hashes
         // -----------------------------------------------------------------------
         // Map: blake2b-224(vkey) hex → index in vkeyWitnesses
         var witnessedKeyHashes: Set<String> = []
@@ -57,7 +57,25 @@ public struct SignatureRule: ValidationRule {
         }
 
         // -----------------------------------------------------------------------
-        // MARK: 2. Ed25519 signature verification
+        // MARK: 1b. Pre-compute bootstrap witness key hashes
+        // -----------------------------------------------------------------------
+        // Map: blake2b-224(publicKey) hex → index in bootstrapWitnesses
+        var bootstrapKeyHashes: Set<String> = []
+        var bootstrapKeyHashToIndex: [String: Int] = [:]
+        for (i, bw) in bootstrapWitnesses.enumerated() {
+            if let hashBytes = try? Hash().blake2b(
+                data: bw.publicKey,
+                digestSize: 28,
+                encoder: RawEncoder.self
+            ) {
+                let hex = hashBytes.toHex
+                bootstrapKeyHashes.insert(hex)
+                bootstrapKeyHashToIndex[hex] = i
+            }
+        }
+
+        // -----------------------------------------------------------------------
+        // MARK: 2. Ed25519 signature verification — vkey witnesses
         // -----------------------------------------------------------------------
         // tx body hash = Blake2b-256 of the CBOR-serialised transaction body
         let txBodyCBOR = body.payload
@@ -85,10 +103,32 @@ public struct SignatureRule: ValidationRule {
         }
 
         // -----------------------------------------------------------------------
+        // MARK: 2b. Ed25519 signature verification — bootstrap witnesses
+        // -----------------------------------------------------------------------
+        for (i, bw) in bootstrapWitnesses.enumerated() {
+            do {
+                let verifyKey = try VerifyKey(key: bw.publicKey)
+                let combined = bw.signature + txBodyHash
+                _ = try verifyKey.verify(smessage: combined)
+            } catch {
+                issues.append(ValidationError(
+                    kind: .invalidSignature,
+                    fieldPath: "transaction_witness_set.bootstrapWitness[\(i)]",
+                    message: "Ed25519 signature verification failed for bootstrap witness "
+                        + "\(bw.publicKey.toHex.prefix(16))…: \(error.localizedDescription)",
+                    hint: "Ensure the transaction was signed with the correct Byron private key "
+                        + "and the transaction body has not been modified after signing."
+                ))
+            }
+        }
+
+        // -----------------------------------------------------------------------
         // MARK: 3. Collect all required key hashes
         // -----------------------------------------------------------------------
         // Build the full set of key hashes that MUST have a vkey witness.
         var requiredKeyHashes: Set<String> = []
+        // Track whether any spending input requires a Byron bootstrap witness.
+        var byronInputIndices: [Int] = []
 
         // 3a. Required signers from tx body
         if let requiredSigners = body.requiredSigners {
@@ -97,18 +137,22 @@ public struct SignatureRule: ValidationRule {
             }
         }
 
-        // 3b. Key-payment-locked spending inputs
+        // 3b. Spending inputs — key-payment-locked (Shelley) and Byron-addressed
         if !context.resolvedInputs.isEmpty {
             let resolvedMap: [String: TransactionOutput] = Dictionary(
                 uniqueKeysWithValues: context.resolvedInputs.map { utxo in
                     ("\(utxo.input.transactionId)#\(utxo.input.index)", utxo.output)
                 }
             )
-            for input in body.inputs.asArray {
+            for (i, input) in body.inputs.asArray.enumerated() {
                 let key = "\(input.transactionId)#\(input.index)"
                 guard let output = resolvedMap[key] else { continue }
-                guard let paymentPart = output.address.paymentPart else { continue }
-                if case .verificationKeyHash(let vkh) = paymentPart {
+
+                if output.address.addressType == .byron {
+                    // Byron-addressed inputs require a BootstrapWitness.
+                    byronInputIndices.append(i)
+                } else if let paymentPart = output.address.paymentPart,
+                          case .verificationKeyHash(let vkh) = paymentPart {
                     requiredKeyHashes.insert(vkh.payload.toHex)
                 }
             }
@@ -154,6 +198,21 @@ public struct SignatureRule: ValidationRule {
         }
 
         // -----------------------------------------------------------------------
+        // MARK: 4b. Missing bootstrap witness for Byron inputs
+        // -----------------------------------------------------------------------
+        if !byronInputIndices.isEmpty && bootstrapWitnesses.isEmpty {
+            issues.append(ValidationError(
+                kind: .missingBootstrapWitness,
+                fieldPath: "transaction_witness_set.bootstrapWitness",
+                message: "Transaction spends \(byronInputIndices.count) Byron-addressed "
+                    + "input(s) (at indices \(byronInputIndices)) but no bootstrap witnesses "
+                    + "are present in the witness set.",
+                hint: "Sign the transaction with the Byron key(s) corresponding to the "
+                    + "spending inputs and include the bootstrap witnesses."
+            ))
+        }
+
+        // -----------------------------------------------------------------------
         // MARK: 5. Extraneous vkey witnesses (warning)
         // -----------------------------------------------------------------------
         // Collect script-pubkey hashes required by native scripts in the witness set.
@@ -175,6 +234,19 @@ public struct SignatureRule: ValidationRule {
                     isWarning: true
                 ))
             }
+        }
+
+        // -----------------------------------------------------------------------
+        // MARK: 5b. Extraneous bootstrap witnesses (warning)
+        // -----------------------------------------------------------------------
+        if !bootstrapWitnesses.isEmpty && byronInputIndices.isEmpty {
+            issues.append(ValidationError(
+                kind: .extraneousSignature,
+                fieldPath: "transaction_witness_set.bootstrapWitness",
+                message: "Bootstrap witnesses are present but no spending inputs use Byron addresses.",
+                hint: "Remove unreferenced bootstrap witnesses to reduce transaction size.",
+                isWarning: true
+            ))
         }
 
         return issues

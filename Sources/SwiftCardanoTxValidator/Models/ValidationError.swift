@@ -93,6 +93,8 @@ public struct ValidationError: Sendable, Codable, Equatable {
         case disallowedVoter
         case votingOnExpiredGovAction
         case voterDoesNotExist
+        // Byron / bootstrap witness errors (Batch 8)
+        case missingBootstrapWitness   // Byron-addressed spending input has no matching bootstrap witness
         // Parse errors
         case malformedCBOR
         // Generic fallback

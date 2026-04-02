@@ -48,6 +48,10 @@ public struct ValidationContext: Sendable {
     /// Current epoch, used by `RegistrationRule` for pool retirement bounds.
     public let currentEpoch: UInt64?
 
+    /// The transaction era. When set, rules skip era-inappropriate checks.
+    /// If `nil`, Conway is assumed (backward-compatible default).
+    public let era: Era?
+
     public init(
         resolvedInputs: [UTxO] = [],
         currentSlot: UInt64? = nil,
@@ -60,7 +64,8 @@ public struct ValidationContext: Sendable {
         currentCommitteeMembers: [CommitteeInputContext] = [],
         potentialCommitteeMembers: [CommitteeInputContext] = [],
         treasuryValue: UInt64? = nil,
-        currentEpoch: UInt64? = nil
+        currentEpoch: UInt64? = nil,
+        era: Era? = nil
     ) {
         self.resolvedInputs = resolvedInputs
         self.currentSlot = currentSlot
@@ -74,6 +79,7 @@ public struct ValidationContext: Sendable {
         self.potentialCommitteeMembers = potentialCommitteeMembers
         self.treasuryValue = treasuryValue
         self.currentEpoch = currentEpoch
+        self.era = era
     }
 
     // MARK: - Finder methods

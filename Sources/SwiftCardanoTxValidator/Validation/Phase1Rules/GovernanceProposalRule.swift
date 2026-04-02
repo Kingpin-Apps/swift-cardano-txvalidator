@@ -26,6 +26,9 @@ public struct GovernanceProposalRule: ValidationRule {
         protocolParams: ProtocolParameters
     ) throws -> [ValidationError] {
 
+        let era = context.era ?? .conway
+        guard era >= .conway else { return [] }
+
         guard let proposals = transaction.transactionBody.proposalProcedures else {
             return []
         }
