@@ -47,6 +47,7 @@ if report.isValid {
 - ``TxValidator``
 - ``TxValidatorReport``
 - ``ValidationContext``
+- ``NecessaryData``
 
 ### Validation Results
 
@@ -66,14 +67,32 @@ if report.isValid {
 
 ### Built-in Phase-1 Rules
 
+- ``AuxiliaryDataRule``
+- ``TransactionLimitsRule``
 - ``FeeRule``
 - ``BalanceRule``
 - ``CollateralRule``
 - ``ScriptIntegrityRule``
 - ``ValidityIntervalRule``
 - ``RequiredSignersRule``
+- ``WitnessRule``
+- ``SignatureRule``
 - ``OutputValueRule``
 - ``NetworkIdRule``
+- ``RegistrationRule``
+- ``GovernanceProposalRule``
+- ``VotingRule``
+
+### Chain-State Context Types
+
+- ``AccountInputContext``
+- ``PoolInputContext``
+- ``DRepInputContext``
+- ``GovActionInputContext``
+- ``CommitteeInputContext``
+- ``GovActionType``
+- ``TransactionInputRef``
+- ``GovActionIdRef``
 
 ### Validators
 

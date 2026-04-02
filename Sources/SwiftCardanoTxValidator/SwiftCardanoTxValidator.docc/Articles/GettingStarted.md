@@ -71,7 +71,15 @@ import SwiftCardanoCore
 let context = ValidationContext(
     resolvedInputs: myUTxOs,      // [UTxO] — the inputs being spent
     currentSlot: 42_000_000,      // UInt64 — required for validity interval checks
-    network: .mainnet             // NetworkId — required for address network checks
+    network: .mainnet,            // NetworkId — required for address network checks
+    // Optional chain-state for full Conway validation:
+    accountContexts: accountContexts,       // [AccountInputContext]
+    poolContexts: poolContexts,             // [PoolInputContext]
+    drepContexts: drepContexts,             // [DRepInputContext]
+    govActionContexts: govActionContexts,   // [GovActionInputContext]
+    currentCommitteeMembers: ccMembers,     // [CommitteeInputContext]
+    currentEpoch: 500,
+    era: .conway
 )
 
 let report = try await validator.validatePhase1(
@@ -83,6 +91,30 @@ let report = try await validator.validatePhase1(
 print(report.isValid)            // true / false
 print(report.allErrors.count)    // number of hard errors
 print(report.allWarnings.count)  // number of warnings (e.g. fee too high)
+```
+
+### Discovering required chain state
+
+Before building ``ValidationContext``, call ``TxValidator/necessaryData(cborHex:)`` to find out exactly which records to fetch from the ledger. This avoids fetching data the transaction doesn't need:
+
+```swift
+let necessary = try validator.necessaryData(cborHex: rawTxHex)
+
+// necessary.inputs                 — UTxO refs to resolve
+// necessary.rewardAccounts         — stake addresses to query
+// necessary.stakePools             — pool IDs to query
+// necessary.dReps                  — DRep IDs to query
+// necessary.govActionIds           — governance action IDs to query
+// necessary.lastEnactedGovActionTypes — action types whose last-enacted record is needed
+// necessary.committeeMembersCold   — committee cold credentials to query
+
+// Fetch state from your chain provider, then build context:
+let context = ValidationContext(
+    resolvedInputs: fetchUTxOs(necessary.inputs),
+    accountContexts: fetchAccounts(necessary.rewardAccounts),
+    poolContexts: fetchPools(necessary.stakePools),
+    ...
+)
 ```
 
 ### Interpreting the result
@@ -181,3 +213,5 @@ print(json)
 
 - <doc:CustomRules> — add your own validation logic
 - <doc:ErrorReference> — full catalogue of error kinds and their meanings
+- ``ValidationContext`` — full reference for all chain-state fields
+- ``NecessaryData`` — structure returned by ``TxValidator/necessaryData(cborHex:)``
