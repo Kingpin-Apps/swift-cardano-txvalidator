@@ -4,8 +4,6 @@ import SwiftNcal
 
 /// Verifies that every key hash listed in `required_signers` has a corresponding
 /// vkey witness whose Blake2b-224 hash matches that value.
-///
-/// Reference: cquisitor-lib `witness.rs` — `MissingVKeyWitnesses`
 public struct RequiredSignersRule: ValidationRule {
     public let name = "requiredSigners"
 

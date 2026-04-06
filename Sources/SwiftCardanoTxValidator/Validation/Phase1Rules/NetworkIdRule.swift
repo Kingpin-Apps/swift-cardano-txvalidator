@@ -3,8 +3,6 @@ import SwiftCardanoCore
 
 /// Verifies that every output address's network ID matches the network ID declared
 /// in `transaction_body.network_id` (or the context network if the body omits it).
-///
-/// Reference: cquisitor-lib — `WrongNetwork`, `WrongNetworkInTxBody`
 public struct NetworkIdRule: ValidationRule {
     public let name = "networkId"
 

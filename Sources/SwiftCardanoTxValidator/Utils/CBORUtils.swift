@@ -47,8 +47,6 @@ public enum CBORUtils {
     ///   `0xA0` (empty map) if no datums
     /// - `language_views_cbor`: cost models for only the Plutus versions actually used,
     ///   `0xA0` (empty map) if no redeemers
-    ///
-    /// Reference: cquisitor-lib `witness.rs` — `ScriptDataHashMismatch` decomposition
     static func scriptDataHash(
         witnessSet: TransactionWitnessSet,
         protocolParams: ProtocolParameters
@@ -90,11 +88,19 @@ public enum CBORUtils {
     /// Build the cost-model language views CBOR.
     ///
     /// Only the Plutus versions actually required by the scripts in this transaction
-    /// are included. Keys are sorted length-first then lexicographically (all keys are
-    /// 1-byte integers 0/1/2, so order is V1 → V2 → V3).
+    /// are included. Keys are sorted by encoded length first, then lexicographically
+    /// (canonical ordering). For 1-byte keys 0/1/2, the order is V1 → V2 → V3.
     ///
-    /// PlutusV1 cost model is encoded as an indefinite-length CBOR array (0x9F…0xFF).
-    /// PlutusV2 and V3 cost models are encoded as definite-length CBOR arrays.
+    /// **PlutusV1** (due to cardano-ledger bug cardano-ledger#2512):
+    ///   - Language key: CBOR bytestring `0x4100` (1-byte bstr containing `0x00`)
+    ///   - Cost model value: CBOR bytestring wrapping an indefinite-length array
+    ///     Format: `0x59XXXX 9F <cost1> <cost2> ... FF`
+    ///
+    /// **PlutusV2/V3** (standard encoding):
+    ///   - Language key: CBOR unsigned integer (1 for V2, 2 for V3)
+    ///   - Cost model value: definite-length CBOR array of integers
+    ///
+    /// Reference: Cardano Ledger Spec § "language views encoding",
     private static func languageViewsCBOR(
         witnessSet: TransactionWitnessSet,
         protocolParams: ProtocolParameters
@@ -107,14 +113,20 @@ public enum CBORUtils {
         var entriesData = Data()
 
         if usesV1, let costs = protocolParams.costModels.getVersion(1) {
-            // Key 0 (PlutusV1): CBOR uint 0
-            entriesData += cborUInt(0, majorType: 0)
-            // Value: indefinite-length CBOR array
-            entriesData.append(0x9F)
+            // Key: CBOR bytestring containing a single byte 0x00 → 0x41 0x00
+            entriesData += cborByteString(Data([0x00]))
+
+            // Value: CBOR bytestring wrapping the indefinite-length array of costs.
+            // First build the inner indefinite-length array: 9F <int> <int> ... FF
+            var innerArray = Data()
+            innerArray.append(0x9F)  // indefinite-length array start
             for cost in costs {
-                entriesData += cborInt(cost)
+                innerArray += cborInt(cost)
             }
-            entriesData.append(0xFF)  // CBOR break
+            innerArray.append(0xFF)  // CBOR break
+            // Wrap the inner array in a CBOR bytestring
+            entriesData += cborByteString(innerArray)
+
             entryCount += 1
         }
 
@@ -151,6 +163,11 @@ public enum CBORUtils {
 
     // MARK: - CBOR primitive encoding helpers
 
+    /// Encode a byte string with CBOR major type 2.
+    private static func cborByteString(_ data: Data) -> Data {
+        return cborUInt(UInt(data.count), majorType: 2) + data
+    }
+
     /// Encode a non-negative integer with the given CBOR major type.
     private static func cborUInt(_ value: UInt, majorType: UInt8) -> Data {
         let major: UInt8 = majorType << 5
@@ -185,5 +202,46 @@ public enum CBORUtils {
             // CBOR negative: encode -(n+1) with major type 1
             return cborUInt(UInt(-(value + 1)), majorType: 1)
         }
+    }
+
+    // MARK: - Testing support
+
+    /// Test-accessible entry point for `languageViewsCBOR` that accepts raw cost arrays
+    /// directly, bypassing the need for a full `TransactionWitnessSet` and `ProtocolParameters`.
+    ///
+    /// - Important: This method is intended for unit tests only.
+    static func languageViewsCBORForTesting(
+        usesV1: Bool, usesV2: Bool, usesV3: Bool,
+        v1Costs: [Int]?, v2Costs: [Int]?, v3Costs: [Int]?
+    ) throws -> Data {
+        var entryCount: UInt = 0
+        var entriesData = Data()
+
+        if usesV1, let costs = v1Costs {
+            entriesData += cborByteString(Data([0x00]))
+            var innerArray = Data()
+            innerArray.append(0x9F)
+            for cost in costs { innerArray += cborInt(cost) }
+            innerArray.append(0xFF)
+            entriesData += cborByteString(innerArray)
+            entryCount += 1
+        }
+
+        if usesV2, let costs = v2Costs {
+            entriesData += cborUInt(1, majorType: 0)
+            entriesData += cborUInt(UInt(costs.count), majorType: 4)
+            for cost in costs { entriesData += cborInt(cost) }
+            entryCount += 1
+        }
+
+        if usesV3, let costs = v3Costs {
+            entriesData += cborUInt(2, majorType: 0)
+            entriesData += cborUInt(UInt(costs.count), majorType: 4)
+            for cost in costs { entriesData += cborInt(cost) }
+            entryCount += 1
+        }
+
+        if entryCount == 0 { return Data([0xA0]) }
+        return cborUInt(entryCount, majorType: 5) + entriesData
     }
 }

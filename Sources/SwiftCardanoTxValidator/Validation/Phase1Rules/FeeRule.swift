@@ -10,8 +10,6 @@ import SwiftCardanoCore
 ///         + executionUnitPrices.priceSteps  * Σ(redeemer.steps)
 ///         + minFeeRefScriptCostPerByte * Σ(inline_reference_script_bytes)  [Conway only]
 /// ```
-///
-/// Reference: cquisitor-lib `fee.rs` — `FeeTooSmallUTxO` / `FeeIsBiggerThanMinFee`
 public struct FeeRule: ValidationRule {
     public let name = "fee"
 

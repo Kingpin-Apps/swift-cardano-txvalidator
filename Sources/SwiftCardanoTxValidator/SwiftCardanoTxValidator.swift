@@ -48,10 +48,6 @@ public struct TxValidator: Sendable {
     /// Inspect a transaction and return the complete list of chain state that must be
     /// fetched before running full validation.
     ///
-    /// This is equivalent to cquisitor-lib's `get_necessary_data_list_js`. Call this
-    /// first, fetch the returned UTxOs / accounts / pools / DReps / governance actions
-    /// from the ledger, then pass them to `validate()` inside `ValidationContext`.
-    ///
     /// - Parameter cborHex: Hex-encoded CBOR transaction.
     /// - Returns: Structured list of everything the caller must fetch.
     public func necessaryData(cborHex: String) throws -> NecessaryData {
@@ -124,6 +120,89 @@ public struct TxValidator: Sendable {
         // so Swift 6 prohibits sending them into concurrent child tasks.
         // Phase-1 rules still run (sequentially) and Phase-2 delegates to PhaseTwo
         // which uses structured concurrency internally.
+        let phase1Result = try await phase1.validate(
+            transaction: transaction,
+            context: context,
+            protocolParams: protocolParams
+        )
+
+        let phase2Outcome: Phase2Outcome?
+        if let chainContext {
+            phase2Outcome = try await phase2.evaluate(
+                transaction: transaction,
+                resolvedInputs: context.resolvedInputs,
+                chainContext: chainContext
+            )
+        } else {
+            phase2Outcome = nil
+        }
+
+        return TxValidatorReport(
+            transactionView: txView,
+            phase1Result: phase1Result,
+            phase2Result: phase2Outcome?.result,
+            redeemerEvalResults: phase2Outcome?.redeemerEvalResults
+        )
+    }
+
+    // MARK: - Transaction overloads
+
+    /// Parse and return a human-readable ``TransactionView`` from an already-decoded transaction.
+    public func inspect(transaction: Transaction) throws -> TransactionView {
+        try parser.buildView(transaction: transaction)
+    }
+
+    /// Return the chain-state fetch requirements for an already-decoded transaction.
+    public func necessaryData(transaction: Transaction) -> NecessaryData {
+        NecessaryData.from(transaction)
+    }
+
+    /// Run Phase-1 ledger rule checks on an already-decoded transaction.
+    ///
+    /// - Parameters:
+    ///   - transaction: The decoded transaction.
+    ///   - protocolParams: Current protocol parameters.
+    ///   - context: Optional resolved inputs, current slot, and network.
+    public func validatePhase1(
+        transaction: Transaction,
+        protocolParams: ProtocolParameters,
+        context: ValidationContext = ValidationContext()
+    ) async throws -> TxValidatorReport {
+
+        let txView = try parser.buildView(transaction: transaction)
+
+        let phase1Result = try await phase1.validate(
+            transaction: transaction,
+            context: context,
+            protocolParams: protocolParams
+        )
+
+        return TxValidatorReport(
+            transactionView: txView,
+            phase1Result: phase1Result,
+            phase2Result: nil,
+            redeemerEvalResults: nil
+        )
+    }
+
+    /// Full validation pipeline on an already-decoded transaction: Phase-1 → Phase-2 (if requested).
+    ///
+    /// - Parameters:
+    ///   - transaction: The decoded transaction.
+    ///   - protocolParams: Current protocol parameters.
+    ///   - context: Resolved inputs, current slot, and network.
+    ///   - chainContext: Required for Phase-2 script execution. Pass `nil` to skip Phase-2.
+    public func validate(
+        transaction: Transaction,
+        protocolParams: ProtocolParameters,
+        context: ValidationContext = ValidationContext(),
+        chainContext: (any ChainContext)? = nil
+    ) async throws -> TxValidatorReport {
+
+        let txView = try parser.buildView(transaction: transaction)
+
+        logger.debug("Validating transaction \(txView.txId)")
+
         let phase1Result = try await phase1.validate(
             transaction: transaction,
             context: context,

@@ -14,8 +14,7 @@ public struct ExUnitsView: Sendable, Codable, Equatable {
 }
 
 /// Per-redeemer outcome from Phase-2 Plutus script evaluation.
-///
-/// Mirrors the `EvalRedeemerResult` shape from cquisitor-lib, adapted to what
+/// 
 /// SwiftCardanoUPLC's `PhaseTwoResult` exposes.
 public struct RedeemerEvalResult: Sendable, Codable, Equatable {
 

@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SwiftCardanoCore
 @testable import SwiftCardanoTxValidator
 
 @Suite("CBORUtils")
@@ -57,5 +58,50 @@ struct CBORUtilsTests {
     @Test("data(fromHex:) returns nil for odd-length input")
     func hexOddLength() {
         #expect(CBORUtils.data(fromHex: "ABC") == nil)
+    }
+
+    // MARK: - PlutusV1 language views encoding
+
+    @Test("PlutusV1 language views key uses CBOR bytestring 0x4100, not uint 0x00")
+    func plutusV1LanguageViewsKeyEncoding() throws {
+        // Reference for PlutusV1 cost_models_cbor starts with:
+        //   a1    -- 1-entry map
+        //   4100  -- key: bytestring(1) = [0x00]   (NOT 0x00 = uint 0)
+        //   5901a6 -- value: bytestring(422 bytes)
+        //   9f ... ff  -- indefinite-length array of cost model integers inside
+        //
+        // This encoding is mandated by cardano-ledger#2512.
+        let expectedPrefix = Data([0xA1, 0x41, 0x00, 0x59])
+
+        let result = try CBORUtils.languageViewsCBORForTesting(
+            usesV1: true, usesV2: false, usesV3: false,
+            v1Costs: PLUTUS_V1_COST_MODEL.values.map { $0 },
+            v2Costs: nil, v3Costs: nil
+        )
+
+        let prefix = result.prefix(expectedPrefix.count)
+        #expect(
+            prefix == expectedPrefix,
+            "PlutusV1 language views should start with A1 4100 59..., got: \(CBORUtils.hexString(from: Data(prefix)))"
+        )
+    }
+
+    @Test("PlutusV1 cost model CBOR uses known reference hex")
+    func plutusV1CostModelMatchesReference() throws {
+        // The decomposition for a PlutusV1-only transaction shows
+        // cost_models_cbor starting with: a141005901a69f...
+        let result = try CBORUtils.languageViewsCBORForTesting(
+            usesV1: true, usesV2: false, usesV3: false,
+            v1Costs: PLUTUS_V1_COST_MODEL.values.map { $0 },
+            v2Costs: nil, v3Costs: nil
+        )
+        let hex = CBORUtils.hexString(from: result)
+
+        // Map header + V1 key
+        #expect(hex.hasPrefix("a14100"), "Expected map with bytestring key 0x00")
+
+        // The value must be a 2-byte-length CBOR bytestring (major type 2, additional info 25)
+        // containing the indefinite array. Byte at offset 3 should be 0x59 (bstr, 2-byte length).
+        #expect(result[3] == 0x59, "Expected 2-byte length bytestring (0x59) for cost model value")
     }
 }

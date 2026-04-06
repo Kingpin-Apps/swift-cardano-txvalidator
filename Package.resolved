@@ -1,5 +1,5 @@
 {
-  "originHash" : "f090f2a0856f4fc3a623dc62ee287c2f9989c2237922744eef969bedb894ae47",
+  "originHash" : "cf7b8525781bae013c82d93f5cc5fcd892974a565309d715bd125861db442601",
   "pins" : [
     {
       "identity" : "base32",
@@ -159,8 +159,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cardano-chain.git",
       "state" : {
-        "revision" : "512c52a6cb3373c9483bafd5e14546fdbb904c00",
-        "version" : "0.2.9"
+        "revision" : "9f72e8a03d4844b018fbfa5b5192b8bd2783895e",
+        "version" : "0.2.13"
       }
     },
     {
@@ -168,8 +168,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cardano-core.git",
       "state" : {
-        "revision" : "adb8fc8eb6c53eecca3e48424d0888eadaa01633",
-        "version" : "0.3.0"
+        "revision" : "cc1bf9fb3f05da4a02f55bd7036bb88aad0454d3",
+        "version" : "0.3.3"
       }
     },
     {
@@ -258,8 +258,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-koios.git",
       "state" : {
-        "revision" : "f736bc504db09c1f3d558aa5747b997e37cdaf70",
-        "version" : "0.1.5"
+        "revision" : "e0af84f37fe689368696048aa4e7c00c4fe106fb",
+        "version" : "0.1.7"
       }
     },
     {

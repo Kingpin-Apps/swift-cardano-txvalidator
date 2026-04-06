@@ -50,6 +50,10 @@ struct MockChainContext: ChainContext, @unchecked Sendable {
         throw MockError.notImplemented
     }
 
+    func utxo(input: TransactionInput) async throws -> (UTxO, isSpent: Bool)? {
+        throw MockError.notImplemented
+    }
+
     func submitTxCBOR(cbor: Data) async throws -> String {
         throw MockError.notImplemented
     }
@@ -71,6 +75,21 @@ struct MockChainContext: ChainContext, @unchecked Sendable {
     }
 
     func stakePoolInfo(poolId: String) async throws -> StakePoolInfo {
+        throw MockError.notImplemented
+    }
+    func treasury() async throws -> SwiftCardanoCore.Coin {
+        throw MockError.notImplemented
+    }
+    
+    func drepInfo(drep: SwiftCardanoCore.DRep) async throws -> SwiftCardanoChain.DRepInfo {
+        throw MockError.notImplemented
+    }
+    
+    func govActionInfo(govActionID: SwiftCardanoCore.GovActionID) async throws -> SwiftCardanoChain.GovActionInfo {
+        throw MockError.notImplemented
+    }
+    
+    func committeeMemberInfo(committeeMember: SwiftCardanoCore.CommitteeColdCredential) async throws -> SwiftCardanoChain.CommitteeMemberInfo {
         throw MockError.notImplemented
     }
 }

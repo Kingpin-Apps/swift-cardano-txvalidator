@@ -3,7 +3,7 @@ import SwiftCardanoCore
 
 // MARK: - Governance Action Type
 
-/// Type of governance action, mirroring cquisitor-lib's `GovernanceActionType`.
+/// Type of governance action
 public enum GovActionType: String, Sendable, Codable, Equatable, Hashable {
     case parameterChange
     case hardForkInitiation
@@ -17,8 +17,6 @@ public enum GovActionType: String, Sendable, Codable, Equatable, Hashable {
 // MARK: - Account Input Context
 
 /// Chain-state context for a stake / reward account.
-///
-/// Mirrors cquisitor-lib's `AccountInputContext`.
 public struct AccountInputContext: Sendable, Codable, Equatable {
     /// Bech32 reward address (e.g. `stake_test1...`).
     public let rewardAddress: String
@@ -53,8 +51,6 @@ public struct AccountInputContext: Sendable, Codable, Equatable {
 // MARK: - Pool Input Context
 
 /// Chain-state context for a stake pool.
-///
-/// Mirrors cquisitor-lib's `PoolInputContext`.
 public struct PoolInputContext: Sendable, Codable, Equatable {
     /// Pool key hash (hex).
     public let poolId: String
@@ -77,8 +73,6 @@ public struct PoolInputContext: Sendable, Codable, Equatable {
 // MARK: - DRep Input Context
 
 /// Chain-state context for a DRep.
-///
-/// Mirrors cquisitor-lib's `DrepInputContext`.
 public struct DRepInputContext: Sendable, Codable, Equatable {
     /// Bech32 DRep ID (e.g. `drep1...`).
     public let drepId: String
@@ -101,8 +95,6 @@ public struct DRepInputContext: Sendable, Codable, Equatable {
 // MARK: - Governance Action Input Context
 
 /// Chain-state context for a governance action.
-///
-/// Mirrors cquisitor-lib's `GovActionInputContext`.
 public struct GovActionInputContext: Sendable, Codable, Equatable {
     /// Transaction hash (hex) of the proposal.
     public let transactionId: String
@@ -129,8 +121,6 @@ public struct GovActionInputContext: Sendable, Codable, Equatable {
 // MARK: - Committee Input Context
 
 /// Chain-state context for a constitutional committee member.
-///
-/// Mirrors cquisitor-lib's `CommitteeInputContext`.
 public struct CommitteeInputContext: Sendable, Codable, Equatable {
     /// String representation of the committee member's cold credential.
     public let committeeColdCredential: String

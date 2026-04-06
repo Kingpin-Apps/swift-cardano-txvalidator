@@ -19,9 +19,6 @@ import SwiftNcal
 ///   present at all, emit a `missingRedeemer` error
 /// - Extraneous redeemer pre-check (warning) — redeemers present but no Plutus scripts
 ///   are referenced
-///
-/// Reference: cquisitor-lib `witness.rs` — MissingScriptWitnesses, ExtraScriptWitnesses,
-/// NativeScriptFailed, MissingDatumWitness, ExtraneousDatumWitness
 public struct WitnessRule: ValidationRule {
     public let name = "witness"
 

@@ -8,8 +8,6 @@ import SwiftCardanoCore
 /// ```
 /// min_ada = utxoCostPerByte × (160 + serialised_output_size_bytes)
 /// ```
-///
-/// Reference: cquisitor-lib `output.rs` — `OutputTooSmallUTxO`, `OutputsValueTooBig`
 public struct OutputValueRule: ValidationRule {
     public let name = "outputValue"
 
@@ -54,7 +52,7 @@ public struct OutputValueRule: ValidationRule {
             }
 
             // Maximum serialised value size check
-            // The value field (amount) is checked separately per cquisitor-lib
+            // The value field (amount) is checked separately
             if let valueBytes = try? output.amount.toCBORData() {
                 if valueBytes.count > protocolParams.maxValueSize {
                     issues.append(ValidationError(

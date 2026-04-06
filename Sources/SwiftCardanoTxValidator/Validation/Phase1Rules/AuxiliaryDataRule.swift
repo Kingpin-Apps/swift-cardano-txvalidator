@@ -7,9 +7,6 @@ import SwiftCardanoCore
 /// 1. If `auxiliaryData` is present, `body.auxiliaryDataHash` must also be present.
 /// 2. If `body.auxiliaryDataHash` is present but no `auxiliaryData` exists, that is an error.
 /// 3. When both are present, the declared hash must match Blake2b-256 of the CBOR-encoded auxiliary data.
-///
-/// Reference: cquisitor-lib — `AuxiliaryDataHashMismatch`, `AuxiliaryDataHashMissing`,
-/// `AuxiliaryDataHashPresentButNotExpected`
 public struct AuxiliaryDataRule: ValidationRule {
     public let name = "auxiliaryData"
 

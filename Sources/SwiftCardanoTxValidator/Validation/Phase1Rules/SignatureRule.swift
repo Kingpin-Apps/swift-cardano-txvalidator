@@ -12,9 +12,6 @@ import SwiftNcal
 ///   Blake2b-224 hash matches the required key hash. Emits `missingRequiredSigner`.
 /// - Extraneous vkey witnesses (warning) — vkey witnesses not required by any input,
 ///   cert, withdrawal, minting policy, or `requiredSigners`.
-///
-/// Reference: cquisitor-lib `witness.rs` — `InvalidSignature`, `MissingVKeyWitnesses`,
-/// `ExtraneousVKeyWitnesses`
 public struct SignatureRule: ValidationRule {
     public let name = "signature"
 

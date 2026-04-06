@@ -9,8 +9,6 @@ import SwiftCardanoCore
 /// - The voter type is permitted to vote on the given action type (CIP-1694 matrix)
 ///
 /// All checks are skipped gracefully when the relevant context arrays are empty.
-///
-/// Reference: cquisitor-lib voting validation / CIP-1694 voting permission matrix
 public struct VotingRule: ValidationRule {
     public let name = "voting"
 
@@ -168,15 +166,15 @@ private extension VotingRule {
     ///
     /// CIP-1694 permission matrix:
     ///
-    /// | Action Type           | CC  | DRep | SPO |
-    /// |-----------------------|-----|------|-----|
-    /// | NoConfidence          |  ✗  |  ✓   |  ✓  |
-    /// | UpdateCommittee       |  ✗  |  ✓   |  ✓  |
-    /// | NewConstitution       |  ✓  |  ✓   |  ✗  |
-    /// | HardForkInitiation    |  ✓  |  ✓   |  ✓  |
-    /// | ParameterChange       |  ✓  |  ✓   |  ✗  |
-    /// | TreasuryWithdrawals   |  ✓  |  ✓   |  ✗  |
-    /// | InfoAction            |  ✓  |  ✓   |  ✓  |
+    /// | Action Type                 | CC  | DRep | SPO |
+    /// |-------------------------------|------|----------|--------|
+    /// | NoConfidence             |  ✗   |     ✓     |    ✓   |
+    /// | UpdateCommittee       |  ✗   |     ✓     |    ✓   |
+    /// | NewConstitution          |  ✓  |     ✓     |    ✗    |
+    /// | HardForkInitiation        |  ✓  |     ✓     |    ✓   |
+    /// | ParameterChange       |  ✓  |     ✓     |    ✗    |
+    /// | TreasuryWithdrawals   |  ✓  |     ✓     |    ✗    |
+    /// | InfoAction                     |  ✓  |     ✓     |    ✓   |
     ///
     /// Note: SPOs can technically vote on security-parameter changes, but distinguishing
     /// security-group parameters requires inspecting individual fields — this is treated

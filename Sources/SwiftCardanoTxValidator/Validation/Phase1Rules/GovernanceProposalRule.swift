@@ -13,8 +13,6 @@ import SwiftCardanoCore
 ///   - `UpdateCommittee`: no credential in both add and remove sets; expiration
 ///     epochs must be greater than the current epoch
 ///   - All others with a previous action ID: that ID must exist in chain state
-///
-/// Reference: cquisitor-lib governance proposal validation
 public struct GovernanceProposalRule: ValidationRule {
     public let name = "governanceProposal"
 

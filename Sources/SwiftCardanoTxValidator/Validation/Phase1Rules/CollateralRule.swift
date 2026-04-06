@@ -9,8 +9,6 @@ import SwiftCardanoCore
 /// - Total collateral ADA ≥ `fee × collateralPercentage / 100`
 /// - Collateral inputs are not locked by scripts (must be key-payment credentials)
 /// - Warns if collateral is declared but no redeemers are present
-///
-/// Reference: cquisitor-lib `collateral.rs`
 public struct CollateralRule: ValidationRule {
     public let name = "collateral"
 

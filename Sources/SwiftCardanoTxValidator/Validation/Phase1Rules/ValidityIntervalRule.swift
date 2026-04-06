@@ -7,8 +7,6 @@ import SwiftCardanoCore
 /// - Upper bound: `transaction_body.ttl` (exclusive)
 ///
 /// Skips the check if `context.currentSlot` is not provided.
-///
-/// Reference: cquisitor-lib `transaction_limits.rs` — `OutsideValidityIntervalUTxO`
 public struct ValidityIntervalRule: ValidationRule {
     public let name = "validityInterval"
 

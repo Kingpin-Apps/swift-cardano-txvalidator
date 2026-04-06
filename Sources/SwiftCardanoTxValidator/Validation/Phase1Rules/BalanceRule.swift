@@ -7,8 +7,6 @@ import SwiftCardanoCore
 /// ```
 ///
 /// Requires `context.resolvedInputs` to be populated; skips the check otherwise.
-///
-/// Reference: cquisitor-lib `balance.rs` — `ValueNotConservedUTxO`
 public struct BalanceRule: ValidationRule {
     public let name = "balance"
 

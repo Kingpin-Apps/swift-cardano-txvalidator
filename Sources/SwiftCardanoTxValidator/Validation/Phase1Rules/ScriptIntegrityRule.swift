@@ -11,8 +11,6 @@ import SwiftCardanoCore
 ///
 /// If neither redeemers nor datums are present, the `script_data_hash` field must
 /// also be absent.
-///
-/// Reference: cquisitor-lib `witness.rs` — `ScriptDataHashMismatch`
 public struct ScriptIntegrityRule: ValidationRule {
     public let name = "scriptIntegrity"
 

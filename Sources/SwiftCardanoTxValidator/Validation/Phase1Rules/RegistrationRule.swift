@@ -6,8 +6,6 @@ import SwiftCardanoCore
 /// Requires `accountContexts`, `poolContexts`, `drepContexts`, and committee member
 /// arrays on `ValidationContext` to perform most checks. Gracefully skips chain-state
 /// checks when these are empty.
-///
-/// Reference: cquisitor-lib `registration.rs`
 public struct RegistrationRule: ValidationRule {
     public let name = "registration"
 

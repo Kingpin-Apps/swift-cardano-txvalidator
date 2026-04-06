@@ -9,9 +9,6 @@ import SwiftCardanoCore
 /// - Total declared execution units must not exceed `maxTxExecutionUnits`
 /// - A reference input must not also appear in the spending input set
 /// - Spending inputs must be in canonical lexicographic order (warning)
-///
-/// Reference: cquisitor-lib — `InputSetEmptyUTxO`, `MaxTxSizeUTxO`,
-/// `ExUnitsTooBigUTxO`, `ReferenceInputsNotSubsetOfInputs`, `BadInputsUTxO`
 public struct TransactionLimitsRule: ValidationRule {
     public let name = "transactionLimits"
 
