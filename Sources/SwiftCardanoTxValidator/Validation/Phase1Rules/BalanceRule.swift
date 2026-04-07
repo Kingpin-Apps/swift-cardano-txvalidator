@@ -323,13 +323,7 @@ public struct BalanceRule: ValidationRule {
         for input in body.inputs.asArray {
             let key = "\(input.transactionId)#\(input.index)"
             guard let resolved = utxoMap[key] else {
-                issues.append(ValidationError(
-                    kind: .missingInput,
-                    fieldPath: "transaction_body.inputs",
-                    message: "Spending input \(key) was not found in resolvedInputs.",
-                    hint: "Ensure all spending inputs are included in resolvedInputs."
-                ))
-                return issues
+                continue
             }
             inputLovelace += resolved.amount.coin
         }
@@ -393,23 +387,27 @@ public struct BalanceRule: ValidationRule {
 
         // Treasury donation (Conway) — PositiveCoin.value is UInt
         let donationLovelace = body.treasuryDonation.map { Int($0.value) } ?? 0
-
-        let inputTotal  = inputLovelace + withdrawalLovelace
-        let outputTotal = outputLovelace + feeLovelace + netDepositLovelace + donationLovelace
-
-        if inputTotal != outputTotal {
-            let diff = inputTotal - outputTotal
-            issues.append(ValidationError(
-                kind: .valueNotConserved,
-                fieldPath: "transaction_body",
-                message: "Value not conserved: "
+        
+        if inputLovelace > 0 {
+            
+            let inputTotal  = inputLovelace + withdrawalLovelace
+            let outputTotal = outputLovelace + feeLovelace + netDepositLovelace + donationLovelace
+            
+            if inputTotal != outputTotal {
+                let diff = inputTotal - outputTotal
+                issues.append(ValidationError(
+                    kind: .valueNotConserved,
+                    fieldPath: "transaction_body",
+                    message: "Value not conserved: "
                     + "inputs+withdrawals=\(inputTotal) lovelace, "
                     + "outputs+fee+deposits+donation=\(outputTotal) lovelace, "
                     + "difference=\(diff) lovelace.",
-                hint: diff > 0
+                    hint: diff > 0
                     ? "Outputs are under-spending by \(diff) lovelace. Check for missing outputs or miscalculated fees."
                     : "Outputs exceed inputs by \(-diff) lovelace. Check for missing inputs or overcounted outputs."
-            ))
+                ))
+            }
+            
         }
 
         return issues

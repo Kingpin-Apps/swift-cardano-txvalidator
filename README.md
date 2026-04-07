@@ -275,7 +275,6 @@ Every `ValidationError` carries:
 | Kind | Description |
 |---|---|
 | `valueNotConserved` | Input/output/fee/deposit/withdrawal balance equation fails |
-| `missingInput` | A spending input is not in `resolvedInputs` |
 | `wrongWithdrawalAmount` | Withdrawal amount doesn't match the reward account balance |
 | `withdrawalNotDelegatedToDRep` | Conway reward withdrawal requires DRep delegation |
 | `rewardAccountNotExisting` | Withdrawal from a non-existent reward account |

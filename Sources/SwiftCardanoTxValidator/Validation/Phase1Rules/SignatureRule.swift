@@ -7,11 +7,18 @@ import SwiftNcal
 /// Checks:
 /// - Ed25519 signature verification — Blake2b-256 of the tx body CBOR, then verify
 ///   each `(vkey, signature)` pair. Emits `invalidSignature` on failure.
-/// - Key-locked input / withdrawal vkey witness completeness — every key-payment-locked
-///   spending input and every key-based withdrawal must have a vkey witness whose
-///   Blake2b-224 hash matches the required key hash. Emits `missingRequiredSigner`.
+/// - Key-locked input vkey witness completeness — every key-payment-locked spending
+///   input must have a vkey witness. Emits `missingVKeyWitness`.
+/// - Key-locked collateral input vkey witness completeness — every key-payment-locked
+///   collateral input must also have a vkey witness (Rust: `collect_collateral_witnesses`).
+/// - Certificate vkey witness completeness — stake/pool/DRep/committee key-credential
+///   certificates require a corresponding vkey witness (Rust: `collect_certificate_witnesses`).
+/// - Voting procedure vkey witness completeness — CC-hot key, DRep key, and SPO voters
+///   all require a vkey witness (Rust: `collect_vote_witnesses`).
+/// - Withdrawal vkey witness completeness — every key-based withdrawal reward account
+///   must have a vkey witness.
 /// - Extraneous vkey witnesses (warning) — vkey witnesses not required by any input,
-///   cert, withdrawal, minting policy, or `requiredSigners`.
+///   collateral, cert, withdrawal, vote, minting policy, or `requiredSigners`.
 public struct SignatureRule: ValidationRule {
     public let name = "signature"
 
@@ -120,79 +127,147 @@ public struct SignatureRule: ValidationRule {
         }
 
         // -----------------------------------------------------------------------
-        // MARK: 3. Collect all required key hashes
+        // MARK: 3. Collect required key hashes and report missing witnesses
         // -----------------------------------------------------------------------
-        // Build the full set of key hashes that MUST have a vkey witness.
-        var requiredKeyHashes: Set<String> = []
-        // Track whether any spending input requires a Byron bootstrap witness.
+        // Build the full set of key hashes for extraneous check (MARK 5),
+        // while reporting specific missing ones for each section.
+        var allRequiredKeyHashes: Set<String> = []
         var byronInputIndices: [Int] = []
 
         // 3a. Required signers from tx body
-        if let requiredSigners = body.requiredSigners {
-            for signer in requiredSigners.asList {
-                requiredKeyHashes.insert(signer.payload.toHex)
+        let explicitRequiredSigners: Set<String> = Set(body.requiredSigners?.asList.map { $0.payload.toHex } ?? [])
+        allRequiredKeyHashes.formUnion(explicitRequiredSigners)
+
+        // Build resolved UTxO map for input/collateral lookups.
+        let resolvedMap: [String: TransactionOutput] = Dictionary(
+            uniqueKeysWithValues: context.resolvedInputs.map { utxo in
+                ("\(utxo.input.transactionId)#\(utxo.input.index)", utxo.output)
             }
-        }
+        )
 
         // 3b. Spending inputs — key-payment-locked (Shelley) and Byron-addressed
-        if !context.resolvedInputs.isEmpty {
-            let resolvedMap: [String: TransactionOutput] = Dictionary(
-                uniqueKeysWithValues: context.resolvedInputs.map { utxo in
-                    ("\(utxo.input.transactionId)#\(utxo.input.index)", utxo.output)
-                }
-            )
-            for (i, input) in body.inputs.asArray.enumerated() {
-                let key = "\(input.transactionId)#\(input.index)"
-                guard let output = resolvedMap[key] else { continue }
+        for (i, input) in body.inputs.asArray.enumerated() {
+            let key = "\(input.transactionId)#\(input.index)"
+            guard let output = resolvedMap[key] else { continue }
 
-                if output.address.addressType == .byron {
-                    // Byron-addressed inputs require a BootstrapWitness.
-                    byronInputIndices.append(i)
-                } else if let paymentPart = output.address.paymentPart,
-                          case .verificationKeyHash(let vkh) = paymentPart {
-                    requiredKeyHashes.insert(vkh.payload.toHex)
-                }
-            }
-        }
-
-        // 3c. Withdrawal key hashes (reward accounts with key-based credentials)
-        if let withdrawals = body.withdrawals {
-            for (rewardAccount, _) in withdrawals.data {
-                // RewardAccount = Data — first byte is header, remaining 28 bytes
-                // are the credential hash. Header bits 4..7 = 0b1110 (noneKey) for
-                // key-based, 0b1111 (noneScript) for script-based.
-                guard rewardAccount.count == 29 else { continue }
-                let header = rewardAccount[0]
-                let credentialType = (header & 0x10) >> 4  // bit 4: 0 = key, 1 = script
-                if credentialType == 0 {
-                    let credentialHash = rewardAccount.dropFirst()
-                    requiredKeyHashes.insert(credentialHash.toHex)
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------------
-        // MARK: 4. Missing vkey witnesses for key-locked inputs / withdrawals
-        // -----------------------------------------------------------------------
-        for requiredHash in requiredKeyHashes {
-            if !witnessedKeyHashes.contains(requiredHash) {
-                // Don't duplicate RequiredSignersRule reports for body.requiredSigners;
-                // only report for input / withdrawal keys.
-                let isExplicitRequiredSigner = body.requiredSigners?.asList.contains(where: {
-                    $0.payload.toHex == requiredHash
-                }) ?? false
-                if !isExplicitRequiredSigner {
+            if output.address.addressType == .byron {
+                // Byron-addressed inputs require a BootstrapWitness.
+                byronInputIndices.append(i)
+            } else if let paymentPart = output.address.paymentPart,
+                      case .verificationKeyHash(let vkh) = paymentPart {
+                let hashHex = vkh.payload.toHex
+                allRequiredKeyHashes.insert(hashHex)
+                if !witnessedKeyHashes.contains(hashHex) {
                     issues.append(ValidationError(
-                        kind: .missingRequiredSigner,
-                        fieldPath: "transaction_witness_set.vkeyWitnesses",
-                        message: "Key hash \(requiredHash) is required by a spending input or "
-                            + "withdrawal but has no corresponding vkey witness.",
+                        kind: .missingVKeyWitness,
+                        fieldPath: "transaction_body.inputs[\(i)]",
+                        message: "Key hash \(hashHex) is required by spending input at index \(i) "
+                            + "but has no corresponding vkey witness.",
                         hint: "Sign the transaction with the private key whose public key "
-                            + "hashes to \(requiredHash)."
+                            + "hashes to \(hashHex)."
                     ))
                 }
             }
         }
+
+        // 3c. Collateral inputs — every key-locked collateral must also be witnessed.
+        if let collateralInputs = body.collateral {
+            for (i, input) in collateralInputs.asList.enumerated() {
+                let key = "\(input.transactionId)#\(input.index)"
+                guard let output = resolvedMap[key] else { continue }
+                if let paymentPart = output.address.paymentPart,
+                   case .verificationKeyHash(let vkh) = paymentPart {
+                    let hashHex = vkh.payload.toHex
+                    allRequiredKeyHashes.insert(hashHex)
+                    if !witnessedKeyHashes.contains(hashHex) {
+                        issues.append(ValidationError(
+                            kind: .missingVKeyWitness,
+                            fieldPath: "transaction_body.collateral[\(i)]",
+                            message: "Key hash \(hashHex) is required by collateral input at index \(i) "
+                                + "but has no corresponding vkey witness.",
+                            hint: "Sign the transaction with the private key whose public key "
+                                + "hashes to \(hashHex)."
+                        ))
+                    }
+                }
+            }
+        }
+
+        // 3d. Certificate key-credential witnesses.
+        if let certs = body.certificates {
+            for (i, cert) in certs.asList.enumerated() {
+                var certKeyHashes = Set<String>()
+                collectCertificateKeyHashes(cert, into: &certKeyHashes)
+                for hashHex in certKeyHashes {
+                    allRequiredKeyHashes.insert(hashHex)
+                    if !witnessedKeyHashes.contains(hashHex) {
+                        issues.append(ValidationError(
+                            kind: .missingVKeyWitness,
+                            fieldPath: "transaction_body.certificates[\(i)]",
+                            message: "Key hash \(hashHex) is required by certificate at index \(i) "
+                                + "(\(String(describing: cert))) but has no corresponding vkey witness.",
+                            hint: "Sign the transaction with the private key whose public key "
+                                + "hashes to \(hashHex)."
+                        ))
+                    }
+                }
+            }
+        }
+
+        // 3e. Voting procedure vkey witnesses — CC-hot key, DRep key, SPO.
+        if let votingProcedures = body.votingProcedures {
+            for (voter, _, _) in votingProcedures.allVotes {
+                var voterKeyHash: String?
+                switch voter.credential {
+                case .constitutionalCommitteeHotKeyhash(let hash):
+                    voterKeyHash = hash.payload.toHex
+                case .drepKeyhash(let hash):
+                    voterKeyHash = hash.payload.toHex
+                case .stakePoolKeyhash(let hash):
+                    voterKeyHash = hash.payload.toHex
+                case .constitutionalCommitteeHotScriptHash, .drepScriptHash:
+                    break
+                }
+
+                if let hashHex = voterKeyHash {
+                    allRequiredKeyHashes.insert(hashHex)
+                    if !witnessedKeyHashes.contains(hashHex) {
+                        issues.append(ValidationError(
+                            kind: .missingVKeyWitness,
+                            fieldPath: "transaction_body.voting_procedures",
+                            message: "Key hash \(hashHex) is required by voting procedure (voter: \(voter)) "
+                                + "but has no corresponding vkey witness.",
+                            hint: "Sign the transaction with the private key whose public key "
+                                + "hashes to \(hashHex)."
+                        ))
+                    }
+                }
+            }
+        }
+
+        // 3f. Withdrawal key hashes (reward accounts with key-based credentials)
+        if let withdrawals = body.withdrawals {
+            for (rewardAccount, _) in withdrawals.data {
+                guard rewardAccount.count == 29 else { continue }
+                let header = rewardAccount[0]
+                let credentialType = (header & 0x10) >> 4  // bit 4: 0 = key, 1 = script
+                if credentialType == 0 {
+                    let hashHex = rewardAccount.dropFirst().toHex
+                    allRequiredKeyHashes.insert(hashHex)
+                    if !witnessedKeyHashes.contains(hashHex) {
+                        issues.append(ValidationError(
+                            kind: .missingVKeyWitness,
+                            fieldPath: "transaction_body.withdrawals",
+                            message: "Key hash \(hashHex) is required by withdrawal for reward account \(rewardAccount.toHex) "
+                                + "but has no corresponding vkey witness.",
+                            hint: "Sign the transaction with the private key whose public key "
+                                + "hashes to \(hashHex)."
+                        ))
+                    }
+                }
+            }
+        }
+
 
         // -----------------------------------------------------------------------
         // MARK: 4b. Missing bootstrap witness for Byron inputs
@@ -218,7 +293,7 @@ public struct SignatureRule: ValidationRule {
             collectScriptPubkeyHashes(ns, into: &nativeScriptKeyHashes)
         }
 
-        let allRequiredHashes = requiredKeyHashes.union(nativeScriptKeyHashes)
+        let allRequiredHashes = allRequiredKeyHashes.union(nativeScriptKeyHashes)
 
         for (witnessHash, idx) in witnessKeyHashToIndex {
             if !allRequiredHashes.contains(witnessHash) {
@@ -251,6 +326,74 @@ public struct SignatureRule: ValidationRule {
 }
 
 // MARK: - Helpers
+
+/// Collects key-credential vkey witness requirements from a certificate.
+///
+/// Mirrors Rust `collect_certificate_witness` / `add_certificate_credential_witness`.
+/// Only key-credential cases are collected here; script-credential cases are handled
+/// by `WitnessRule` (script witness checks).
+private func collectCertificateKeyHashes(_ cert: Certificate, into set: inout Set<String>) {
+    /// Helper to extract a key hash hex from a `StakeCredential` if it is key-based.
+    func keyHashHex(from cred: StakeCredential) -> String? {
+        switch cred.credential {
+        case .verificationKeyHash(let vkh): return vkh.payload.toHex
+        case .scriptHash:                   return nil
+        }
+    }
+
+    /// Helper to extract a key hash hex from a `DRepCredential` if it is key-based.
+    func keyHashHex(from cred: DRepCredential) -> String? {
+        switch cred.credential {
+        case .verificationKeyHash(let vkh): return vkh.payload.toHex
+        case .scriptHash:                   return nil
+        }
+    }
+
+    /// Helper to extract a key hash hex from a `CommitteeColdCredential` if it is key-based.
+    func keyHashHex(from cred: CommitteeColdCredential) -> String? {
+        switch cred.credential {
+        case .verificationKeyHash(let vkh): return vkh.payload.toHex
+        case .scriptHash:                   return nil
+        }
+    }
+
+    switch cert {
+    // Stake credential certs — key-credential requires vkey witness
+    case .stakeRegistration(let c):         if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
+    case .stakeDeregistration(let c):       if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
+    case .stakeDelegation(let c):           if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
+    case .register(let c):                  if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
+    case .unregister(let c):                if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
+    case .voteDelegate(let c):              if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
+    case .stakeVoteDelegate(let c):         if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
+    case .stakeRegisterDelegate(let c):     if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
+    case .voteRegisterDelegate(let c):      if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
+    case .stakeVoteRegisterDelegate(let c): if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
+    // Pool registration — operator + all owners
+    case .poolRegistration(let c):
+        set.insert(c.poolParams.poolOperator.payload.toHex)
+            for owner in c.poolParams.poolOwners.asArray {
+            set.insert(owner.payload.toHex)
+        }
+    // Pool retirement — pool keyhash
+    case .poolRetirement(let c):
+        set.insert(c.poolKeyHash.payload.toHex)
+    // DRep certs — key-credential only
+    case .registerDRep(let c):
+        if let h = keyHashHex(from: c.drepCredential) { set.insert(h) }
+    case .unRegisterDRep(let c):
+        if let h = keyHashHex(from: c.drepCredential) { set.insert(h) }
+    case .updateDRep(let c):
+        if let h = keyHashHex(from: c.drepCredential) { set.insert(h) }
+    // Committee certs — cold credential
+    case .authCommitteeHot(let c):
+        if let h = keyHashHex(from: c.committeeColdCredential) { set.insert(h) }
+    case .resignCommitteeCold(let c):
+        if let h = keyHashHex(from: c.committeeColdCredential) { set.insert(h) }
+    default:
+        break
+    }
+}
 
 /// Recursively collect all `scriptPubkey` key hashes from a native script tree.
 private func collectScriptPubkeyHashes(_ script: NativeScript, into set: inout Set<String>) {

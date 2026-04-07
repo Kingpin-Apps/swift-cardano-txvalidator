@@ -112,13 +112,6 @@ Phase-1 errors are produced by the built-in ``Phase1Validator`` rules and any cu
 - **Cause:** The equation `Σ(inputs) + Σ(withdrawals) + Σ(refunds) ≠ Σ(outputs) + fee + Σ(deposits) + donation` does not hold.
 - **Fix:** Check that all spending inputs are accounted for in `resolvedInputs`, that the change output is correctly sized, and that certificate deposits/refunds and governance proposal deposits are modelled correctly.
 
-#### `missingInput`
-
-- **Rule:** ``BalanceRule``
-- **Field path:** `transaction_body.inputs[n]`
-- **Cause:** One or more spending inputs are not present in `ValidationContext.resolvedInputs`.
-- **Fix:** Ensure every input referenced in the transaction body is included in `context.resolvedInputs`.
-
 #### `wrongWithdrawalAmount`
 
 - **Rule:** ``BalanceRule``

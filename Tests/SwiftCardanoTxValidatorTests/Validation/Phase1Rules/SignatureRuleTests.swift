@@ -126,7 +126,7 @@ struct SignatureRuleTests {
 
     // MARK: - Missing vkey witness for key-locked input
 
-    @Test("SignatureRule emits missingRequiredSigner for key-locked input without witness")
+    @Test("SignatureRule emits missingVKeyWitness for key-locked input without witness")
     func missingVkeyForKeyLockedInput() throws {
         let pp = try loadProtocolParams()
         let rule = SignatureRule()
@@ -163,9 +163,9 @@ struct SignatureRuleTests {
         let ctx = ValidationContext(resolvedInputs: [utxo])
 
         let issues = try rule.validate(transaction: tx, context: ctx, protocolParams: pp)
-        let missingIssues = issues.filter { $0.kind == .missingRequiredSigner }
+        let missingIssues = issues.filter { $0.kind == .missingVKeyWitness }
         #expect(!missingIssues.isEmpty,
-            "Expected missingRequiredSigner for key-locked input with wrong witness key")
+            "Expected missingVKeyWitness for key-locked input with wrong witness key")
     }
 
     // MARK: - Extraneous vkey witness
@@ -216,5 +216,60 @@ struct SignatureRuleTests {
         let extraIssues = issues.filter { $0.kind == .extraneousSignature && $0.isWarning }
         #expect(!extraIssues.isEmpty,
             "Expected extraneousSignature warning for unrequired witness")
+    }
+    // MARK: - Specific missing witness messages
+
+    @Test("SignatureRule reports specific message for missing withdrawal witness")
+    func missingWithdrawalWitness() throws {
+        let pp = try loadProtocolParams()
+        let rule = SignatureRule()
+
+        // Withdrawal for a reward account
+        // Data containing a reward account (29 bytes)
+        // First byte: 0b1110_0000 = 0xE0 (shelley, key-based, testnet)
+        let rewardAccount = Data([0xE0]) + Data(repeating: 0x07, count: 28)
+        let body = TransactionBody(
+            inputs: .list([]),
+            outputs: [],
+            fee: 100_000,
+            withdrawals: Withdrawals([rewardAccount: 1_000_000])
+        )
+
+        let dummyVkey = try VerificationKeyType(from: .bytes(Data(repeating: 0x99, count: 32)))
+        let dummyVkw = VerificationKeyWitness(vkey: dummyVkey, signature: Data(repeating: 0, count: 64))
+        let tx = Transaction(transactionBody: body, transactionWitnessSet: TransactionWitnessSet(vkeyWitnesses: .list([dummyVkw])))
+        let issues = try rule.validate(transaction: tx, context: ValidationContext(), protocolParams: pp)
+
+        let missing = issues.filter { $0.kind == ValidationError.Kind.missingVKeyWitness }
+        #expect(missing.count == 1)
+        #expect(missing.first?.message.contains("required by withdrawal") == true)
+    }
+
+    @Test("SignatureRule reports specific message for missing certificate witness")
+    func missingCertificateWitness() throws {
+        let pp = try loadProtocolParams()
+        let rule = SignatureRule()
+
+        // A certificate requiring a vkey witness (e.g., stake registration)
+        let vkeyHash = VerificationKeyHash(payload: Data(repeating: 0x08, count: 28))
+        let stakeCred = StakeCredential(
+            credential: .verificationKeyHash(vkeyHash)
+        )
+        let cert = Certificate.stakeRegistration(StakeRegistration(stakeCredential: stakeCred))
+        let body = TransactionBody(
+            inputs: .list([]),
+            outputs: [],
+            fee: 100_000,
+            certificates: .list([cert])
+        )
+
+        let dummyVkey = try VerificationKeyType(from: .bytes(Data(repeating: 0x99, count: 32)))
+        let dummyVkw = VerificationKeyWitness(vkey: dummyVkey, signature: Data(repeating: 0, count: 64))
+        let tx = Transaction(transactionBody: body, transactionWitnessSet: TransactionWitnessSet(vkeyWitnesses: .list([dummyVkw])))
+        let issues = try rule.validate(transaction: tx, context: ValidationContext(), protocolParams: pp)
+
+        let missing = issues.filter { $0.kind == ValidationError.Kind.missingVKeyWitness }
+        #expect(missing.count == 1)
+        #expect(missing.first?.message.contains("required by certificate at index 0") == true)
     }
 }
