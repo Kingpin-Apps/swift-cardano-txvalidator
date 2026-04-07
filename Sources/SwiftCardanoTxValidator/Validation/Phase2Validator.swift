@@ -88,13 +88,21 @@ public struct Phase2Validator: Sendable {
                     ? ""
                     : " Script logs: \(redeemerResult.logs.joined(separator: "; "))"
 
+                // Distinguish between input resolution errors and actual script failures
+                let isInputResolutionError = errorStr?.contains("Unresolved spent input") ?? false
+                let hint: String
+                if isInputResolutionError {
+                    hint = "The spent input could not be resolved. This occurs when validating past transactions with a chain backend that only supports the current UTxO set (e.g., cardano-cli, Ogmios). Switch to a backend that supports historical UTxO lookup (Blockfrost, Koios) to validate spent transactions."
+                } else {
+                    hint = "Check the script logic, the redeemer value, and the datum passed to it. Inspect the script logs above for more detail."
+                }
+
                 errors.append(ValidationError(
                     kind: .plutusScriptFailed,
                     fieldPath: "transaction_witness_set.redeemers[\(redeemerResult.index)]",
                     message: "Plutus script execution failed for redeemer[\(redeemerResult.index)]: "
                         + (errorStr ?? "") + logContext,
-                    hint: "Check the script logic, the redeemer value, and the datum passed to it. "
-                        + "Inspect the script logs above for more detail."
+                    hint: hint
                 ))
             } else {
                 // Phase-2 warning: declared execution units significantly exceed calculated units.
