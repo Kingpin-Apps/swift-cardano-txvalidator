@@ -1,3 +1,9 @@
+## 0.1.4 (2026-04-07)
+
+### Fix
+
+- improve script data hash check
+
 ## 0.1.3 (2026-04-06)
 
 ### Fix
