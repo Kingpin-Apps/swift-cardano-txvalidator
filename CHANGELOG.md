@@ -1,3 +1,9 @@
+## 0.1.5 (2026-04-07)
+
+### Fix
+
+- update swift-uplc and handle missing input
+
 ## 0.1.4 (2026-04-07)
 
 ### Fix
