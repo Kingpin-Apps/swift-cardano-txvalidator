@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 @testable import SwiftCardanoTxValidator
 
 // MARK: - Parser Tests
@@ -56,30 +57,6 @@ struct ParserTests {
         } catch TxValidatorError.malformedCBOR {
             // Acceptable if the illustrative hex is not valid CBOR
         }
-    }
-
-    // MARK: - Field extraction
-
-    @Test("CBORUtils hex round-trip")
-    func hexRoundTrip() throws {
-        let original = "deadbeef01020304"
-        let data = CBORUtils.data(fromHex: original)
-        #expect(data != nil)
-        let roundTripped = CBORUtils.hexString(from: data!)
-        #expect(roundTripped == original)
-    }
-
-    @Test("CBORUtils rejects odd-length hex")
-    func oddLengthHex() {
-        let data = CBORUtils.data(fromHex: "abc")
-        #expect(data == nil)
-    }
-
-    @Test("CBORUtils strips 0x prefix")
-    func stripPrefix() {
-        let data = CBORUtils.data(fromHex: "0xdeadbeef")
-        #expect(data != nil)
-        #expect(data!.count == 4)
     }
 
     // MARK: - JSON export

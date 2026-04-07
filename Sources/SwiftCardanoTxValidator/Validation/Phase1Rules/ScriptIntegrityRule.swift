@@ -1,5 +1,6 @@
 import Foundation
 import SwiftCardanoCore
+import SwiftCardanoTxBuilder
 
 /// Verifies that `transaction_body.script_data_hash` matches the expected hash
 /// computed from the transaction's redeemers, datums, and cost-model language views.
@@ -58,11 +59,54 @@ public struct ScriptIntegrityRule: ValidationRule {
         // CBOR encoding of (redeemers || datums || languageViews).
         // If it throws (e.g. Blake2b not yet available), we fall back to a warning.
         do {
-            let computedHashData = try CBORUtils.scriptDataHash(
-                witnessSet: witnesses,
-                protocolParams: protocolParams
+            
+            var version = -1
+            let usesV1 = witnesses.plutusV1Script != nil
+            let usesV2 = witnesses.plutusV2Script != nil
+            let usesV3 = witnesses.plutusV3Script != nil
+            
+            var costModels: [Int: [Int]] = [:]
+            if usesV1 {
+                version = 1
+                costModels[version - 1] = protocolParams.costModels.getVersion(version)
+            }
+            if usesV2 {
+                version = 2
+                costModels[version - 1] = protocolParams.costModels.getVersion(version)
+            }
+            if usesV3 {
+                version = 3
+                costModels[version - 1] = protocolParams.costModels.getVersion(version)
+            }
+            
+            let datums: ListOrNonEmptyOrderedSet<Datum>?
+            switch witnesses.plutusData {
+                case .list(let list):
+                    datums = .list(list.map( { .plutusData($0) }))
+                case .indefiniteList(let list):
+                    datums = .indefiniteList(
+                        IndefiniteList(
+                            list.map( { .plutusData($0) } )
+                        )
+                    )
+                case .nonEmptyOrderedSet(let set):
+                    datums =
+                        .nonEmptyOrderedSet(
+                            NonEmptyOrderedSet(
+                                set.elementsOrdered.map( { .plutusData($0) })
+                            )
+                        )
+                case nil:
+                    datums = nil
+            }
+            
+            let computedHashData = try SwiftCardanoTxBuilder.Utils.scriptDataHash(
+                redeemers: witnesses.redeemers,
+                datums: datums,
+                costModels: CostModels(costModels)
             )
-            let computedHashHex = computedHashData.map { String(format: "%02x", $0) }.joined()
+            
+            let computedHashHex = computedHashData.payload.toHex
             let declaredHashHex = "\(declaredHash!)"
 
             if computedHashHex != declaredHashHex {
@@ -75,15 +119,6 @@ public struct ScriptIntegrityRule: ValidationRule {
                         + "and cost model language views. Check that cost models match the protocol parameters."
                 )]
             }
-        } catch TxValidatorError.notImplemented {
-            // Hashing not yet available — skip comparison but note the limitation
-            return [ValidationError(
-                kind: .unknown,
-                fieldPath: "transaction_body.script_data_hash",
-                message: "script_data_hash could not be recomputed: Blake2b-256 hashing is not yet available.",
-                hint: "Verify the hashing implementation in CBORUtils.blake2b256.",
-                isWarning: true
-            )]
         }
 
         return []
