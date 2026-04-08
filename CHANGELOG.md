@@ -1,3 +1,9 @@
+## 0.1.7 (2026-04-08)
+
+### Fix
+
+- handle spent utxos and fix script data hash
+
 ## 0.1.6 (2026-04-07)
 
 ### Fix
