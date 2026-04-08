@@ -278,6 +278,23 @@ public struct WitnessRule: ValidationRule {
                         ))
                     }
                 }
+            } else if let dh = output.datumHash {
+                // Legacy pre-Babbage style: datum hash stored directly on the output
+                // (also used by chain backends like Blockfrost that populate datumHash
+                // rather than datumOption for non-inline datums).
+                hasDatumInline = false
+                hasDatumHash   = true
+                referencedDatumHashes.insert(dh.payload.toHex)
+                if !witnessedDatumHashes.contains(dh.payload.toHex) {
+                    issues.append(ValidationError(
+                        kind: .missingDatum,
+                        fieldPath: "transaction_body.inputs[\(i)]",
+                        message: "Input \(key) references datum hash \(dh.payload.toHex) "
+                            + "but no matching datum is present in the transaction witness set.",
+                        hint: "Include the datum bytes corresponding to hash \(dh.payload.toHex) "
+                            + "in the transaction witness set, or use an inline datum."
+                    ))
+                }
             } else {
                 hasDatumInline = false
                 hasDatumHash   = false
