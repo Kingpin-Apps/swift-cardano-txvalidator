@@ -1,3 +1,9 @@
+## 0.1.6 (2026-04-07)
+
+### Fix
+
+- check for datum in all places
+
 ## 0.1.5 (2026-04-07)
 
 ### Fix
