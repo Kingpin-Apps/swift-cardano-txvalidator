@@ -11,6 +11,11 @@ public struct ValidationContext: Sendable {
     /// Required by `BalanceRule`. Without these, balance is not checked.
     public let resolvedInputs: [UTxO]
 
+    /// Spending inputs that were found on-chain but have already been consumed.
+    /// Populated when the chain context returns `isSpent: true` for a UTxO lookup.
+    /// Used by `BalanceRule` to emit a warning for each double-spent input.
+    public let spentInputRefs: [TransactionInput]
+
     /// Current ledger slot, used by `ValidityIntervalRule`.
     /// If `nil`, the validity interval is not checked.
     public let currentSlot: UInt64?
@@ -54,6 +59,7 @@ public struct ValidationContext: Sendable {
 
     public init(
         resolvedInputs: [UTxO] = [],
+        spentInputRefs: [TransactionInput] = [],
         currentSlot: UInt64? = nil,
         network: NetworkId? = nil,
         accountContexts: [AccountInputContext] = [],
@@ -68,6 +74,7 @@ public struct ValidationContext: Sendable {
         era: Era? = nil
     ) {
         self.resolvedInputs = resolvedInputs
+        self.spentInputRefs = spentInputRefs
         self.currentSlot = currentSlot
         self.network = network
         self.accountContexts = accountContexts

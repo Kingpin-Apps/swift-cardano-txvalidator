@@ -310,6 +310,25 @@ public struct BalanceRule: ValidationRule {
             return issues
         }
 
+        // -----------------------------------------------------------------------
+        // MARK: Spent input check (requires spentInputRefs from chain context)
+        // -----------------------------------------------------------------------
+        if !context.spentInputRefs.isEmpty {
+            for (i, input) in body.inputs.asArray.enumerated() {
+                let isSpent = context.spentInputRefs.contains {
+                    $0.transactionId == input.transactionId && $0.index == input.index
+                }
+                if isSpent {
+                    issues.append(ValidationError(
+                        kind: .inputAlreadySpent,
+                        fieldPath: "transaction_body.inputs[\(i)]",
+                        message: "Input \(input.transactionId)#\(input.index) has already been spent on-chain.",
+                        hint: "This UTxO no longer exists. The transaction will be rejected as a double-spend.",
+                    ))
+                }
+            }
+        }
+
         // Build a lookup from (txId, index) → output for fast resolution
         let utxoMap: [String: TransactionOutput] = Dictionary(
             uniqueKeysWithValues: context.resolvedInputs.map { utxo in

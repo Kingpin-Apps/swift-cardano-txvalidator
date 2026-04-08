@@ -29,7 +29,7 @@ struct BootstrapWitnessTests {
 
     private func makeBootstrapWitness(signing body: TransactionBody) throws -> BootstrapWitness {
         let signingKey = try SigningKey.generate()
-        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+        let txBodyHash = try Utils.blake2b256(body.payload)
         let signed = try signingKey.sign(message: txBodyHash)
         return try BootstrapWitness(
             publicKey: signingKey.verifyKey.bytes,
@@ -63,7 +63,7 @@ struct BootstrapWitnessTests {
         let body = try makeBody()
 
         let signingKey = try SigningKey.generate()
-        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+        let txBodyHash = try Utils.blake2b256(body.payload)
         let signed = try signingKey.sign(message: txBodyHash)
         var sigData = signed.getSignature
         if sigData.count > 0 { sigData[0] ^= 0xFF }  // flip a byte to corrupt
@@ -108,7 +108,7 @@ struct BootstrapWitnessTests {
             fee: 200_000
         )
 
-        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+        let txBodyHash = try Utils.blake2b256(body.payload)
         let signed = try signingKey.sign(message: txBodyHash)
         let bw = try BootstrapWitness(
             publicKey: signingKey.verifyKey.bytes,
@@ -167,7 +167,7 @@ struct BootstrapWitnessTests {
 
         // Provide only a vkey witness, no bootstrap witness.
         let signingKey = try SigningKey.generate()
-        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+        let txBodyHash = try Utils.blake2b256(body.payload)
         let signed = try signingKey.sign(message: txBodyHash)
         let vkey = try VerificationKeyType(from: .bytes(signingKey.verifyKey.bytes))
         let vkw = VerificationKeyWitness(vkey: vkey, signature: signed.getSignature)

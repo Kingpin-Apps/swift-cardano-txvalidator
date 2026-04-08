@@ -37,6 +37,7 @@ public struct ValidationError: Sendable, Codable, Equatable {
         case executionUnitsTooLarge
         case referenceInputOverlapsWithInput
         case badInput  // input UTxO not found in resolved set
+        case inputAlreadySpent  // warning: input UTxO found on-chain but already spent
         case inputsNotSorted  // warning
         // Phase-2 errors
         case plutusScriptFailed
@@ -132,6 +133,7 @@ public struct ValidationError: Sendable, Codable, Equatable {
             case .executionUnitsTooLarge: return "Execution Units Too Large"
             case .referenceInputOverlapsWithInput: return "Reference Input Overlaps With Input"
             case .badInput: return "Bad Input"
+            case .inputAlreadySpent: return "Input Already Spent"
             case .inputsNotSorted: return "Inputs Not Sorted"
             case .plutusScriptFailed: return "Plutus Script Failed"
             case .missingRedeemer: return "Missing Redeemer"

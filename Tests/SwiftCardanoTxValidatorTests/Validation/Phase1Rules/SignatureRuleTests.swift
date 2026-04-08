@@ -62,7 +62,7 @@ struct SignatureRuleTests {
         )
 
         // Sign the body CBOR
-        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+        let txBodyHash = try Utils.blake2b256(body.payload)
         let signed = try signingKey.sign(message: txBodyHash)
         let sigData = signed.getSignature
 
@@ -106,7 +106,7 @@ struct SignatureRuleTests {
         )
 
         // Sign, then tamper with the signature
-        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+        let txBodyHash = try Utils.blake2b256(body.payload)
         let signed = try signingKey.sign(message: txBodyHash)
         var sigData = signed.getSignature
         // Flip a byte to invalidate
@@ -150,7 +150,7 @@ struct SignatureRuleTests {
 
         // Sign with the wrong key — signature is valid for this key but the input
         // requires a different key hash
-        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+        let txBodyHash = try Utils.blake2b256(body.payload)
         let signed = try signingKey.sign(message: txBodyHash)
 
         let vkey = try VerificationKeyType(from: .bytes(vkeyBytes))
@@ -194,7 +194,7 @@ struct SignatureRuleTests {
             fee: 200_000
         )
 
-        let txBodyHash = try CBORUtils.blake2b256(body.payload)
+        let txBodyHash = try Utils.blake2b256(body.payload)
 
         // Both keys sign — one is required, one is not
         let reqSigned = try requiredKey.sign(message: txBodyHash)

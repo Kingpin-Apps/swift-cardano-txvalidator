@@ -1,6 +1,5 @@
 import Foundation
 import SwiftCardanoCore
-import SwiftCardanoTxBuilder
 
 /// Verifies that `transaction_body.script_data_hash` matches the expected hash
 /// computed from the transaction's redeemers, datums, and cost-model language views.
@@ -55,55 +54,14 @@ public struct ScriptIntegrityRule: ValidationRule {
         }
 
         // Recompute the hash.
-        // CBORUtils.scriptDataHash performs the Blake2b-256 hash over the canonical
+        // Utils.scriptDataHash performs the Blake2b-256 hash over the canonical
         // CBOR encoding of (redeemers || datums || languageViews).
         // If it throws (e.g. Blake2b not yet available), we fall back to a warning.
         do {
             
-            var version = -1
-            let usesV1 = witnesses.plutusV1Script != nil
-            let usesV2 = witnesses.plutusV2Script != nil
-            let usesV3 = witnesses.plutusV3Script != nil
-            
-            var costModels: [Int: [Int]] = [:]
-            if usesV1 {
-                version = 1
-                costModels[version - 1] = protocolParams.costModels.getVersion(version)
-            }
-            if usesV2 {
-                version = 2
-                costModels[version - 1] = protocolParams.costModels.getVersion(version)
-            }
-            if usesV3 {
-                version = 3
-                costModels[version - 1] = protocolParams.costModels.getVersion(version)
-            }
-            
-            let datums: ListOrNonEmptyOrderedSet<Datum>?
-            switch witnesses.plutusData {
-                case .list(let list):
-                    datums = .list(list.map( { .plutusData($0) }))
-                case .indefiniteList(let list):
-                    datums = .indefiniteList(
-                        IndefiniteList(
-                            list.map( { .plutusData($0) } )
-                        )
-                    )
-                case .nonEmptyOrderedSet(let set):
-                    datums =
-                        .nonEmptyOrderedSet(
-                            NonEmptyOrderedSet(
-                                set.elementsOrdered.map( { .plutusData($0) })
-                            )
-                        )
-                case nil:
-                    datums = nil
-            }
-            
-            let computedHashData = try SwiftCardanoTxBuilder.Utils.scriptDataHash(
-                redeemers: witnesses.redeemers,
-                datums: datums,
-                costModels: CostModels(costModels)
+            let computedHashData = try Utils.scriptDataHash(
+                witnessSet: witnesses,
+                protocolParams: protocolParams
             )
             
             let computedHashHex = computedHashData.payload.toHex

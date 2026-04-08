@@ -83,7 +83,7 @@ public struct SignatureRule: ValidationRule {
         // -----------------------------------------------------------------------
         // tx body hash = Blake2b-256 of the CBOR-serialised transaction body
         let txBodyCBOR = body.payload
-        let txBodyHash = try CBORUtils.blake2b256(txBodyCBOR)
+        let txBodyHash = try Utils.blake2b256(txBodyCBOR)
 
         for (i, vkw) in vkeyWitnesses.enumerated() {
             let vkeyBytes = vkw.vkey.payload

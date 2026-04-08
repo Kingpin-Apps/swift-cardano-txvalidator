@@ -1,10 +1,10 @@
 import Foundation
 import SwiftCardanoCore
-import SwiftCardanoTxBuilder
 import SwiftNcal
+import PotentCBOR
 
-/// CBOR and hashing utilities used by validation rules.
-public enum CBORUtils {
+/// Utilities used by validation rules.
+public enum Utils {
 
     // MARK: - Blake2b-256
 
@@ -26,7 +26,7 @@ public enum CBORUtils {
     ///   `0xA0` (empty map) if no datums
     /// - `language_views_cbor`: cost models for only the Plutus versions actually used,
     ///   `0xA0` (empty map) if no redeemers
-    static func scriptDataHash(
+    public static func scriptDataHash(
         witnessSet: TransactionWitnessSet,
         protocolParams: ProtocolParameters
     ) throws -> ScriptDataHash {
@@ -57,10 +57,64 @@ public enum CBORUtils {
             datums = nil
         }
 
-        return try SwiftCardanoTxBuilder.Utils.scriptDataHash(
+        return try scriptDataHash(
             redeemers: witnessSet.redeemers,
             datums: datums,
             costModels: CostModels(costModels)
+        )
+    }
+    
+    /// Calculate plutus script data hash
+    ///
+    /// - Parameters:
+    ///   - redeemers: Redeemers to include.
+    ///   - datums: Datums to include.
+    ///   - costModels: Cost models.
+    /// - Returns: Plutus script data hash
+    public static func scriptDataHash(
+        redeemers: Redeemers? = .map(RedeemerMap()),
+        datums: ListOrNonEmptyOrderedSet<Datum>? = nil,
+        costModels: CostModels? = nil
+    ) throws -> ScriptDataHash {
+        
+        let redeemersIsEmpty: Bool
+        switch redeemers {
+            case .list(let list):
+                redeemersIsEmpty = list.isEmpty
+            case .map(let map):
+                redeemersIsEmpty = map.count == 0
+            case .none:
+                redeemersIsEmpty = true
+        }
+        
+        let costModelsBytes: Data
+        if redeemersIsEmpty {
+            costModelsBytes = try CBOREncoder().encode(CBOR.map([:]))
+        } else if let costModels = costModels {
+            costModelsBytes = try costModels.toCBORData()
+        } else {
+            let costModels = try CostModels.forScriptDataHash()
+            costModelsBytes = try costModels.toCBORData()
+        }
+        
+        let datumBytes = try datums?.toCBORData() ?? Data()
+        let redeemerBytes = try redeemers?.toCBORData() ?? Data()
+        
+        print("Redeemers: \(redeemers)")
+        print("Redeemers CBOR: \(redeemerBytes.toHex)")
+        
+        print("Datums: \(datums)")
+        print("Datums CBOR: \(datumBytes.toHex)")
+        
+        print("Cost models: \(costModels)")
+        print("Cost models CBOR: \(costModelsBytes.toHex)")
+        
+        return ScriptDataHash(
+            payload: try SwiftNcal.Hash().blake2b(
+                data: redeemerBytes + datumBytes + costModelsBytes,
+                digestSize: SCRIPT_DATA_HASH_SIZE,
+                encoder: RawEncoder.self
+            )
         )
     }
 
@@ -80,7 +134,7 @@ public enum CBORUtils {
     ///   - Cost model value: definite-length CBOR array of integers
     ///
     /// Reference: Cardano Ledger Spec § "language views encoding",
-    static func languageViewsCostModels(
+    public static func languageViewsCostModels(
         witnessSet: TransactionWitnessSet,
         protocolParams: ProtocolParameters
     ) throws -> [Int: [Int]] {

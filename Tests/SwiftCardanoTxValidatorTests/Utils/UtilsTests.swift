@@ -1,18 +1,17 @@
 import Foundation
 import SwiftCardanoCore
-import SwiftCardanoTxBuilder
 import Testing
 
 @testable import SwiftCardanoTxValidator
 
-@Suite("CBORUtils")
-struct CBORUtilsTests {
+@Suite("Utils")
+struct UtilsTests {
 
     // MARK: - blake2b256
 
     @Test("blake2b256 of empty data matches known vector")
     func blake2b256EmptyVector() throws {
-        let result = try CBORUtils.blake2b256(Data())
+        let result = try Utils.blake2b256(Data())
         let hex = result.toHex
         // Blake2b-256 of empty input (RFC 7693 / BLAKE2 reference)
         #expect(hex == "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8")
@@ -21,7 +20,7 @@ struct CBORUtilsTests {
     @Test("blake2b256 of 'abc' matches known vector")
     func blake2b256KnownVector() throws {
         let input = Data("abc".utf8)
-        let result = try CBORUtils.blake2b256(input)
+        let result = try Utils.blake2b256(input)
         let hex = result.toHex
         // Blake2b-256 of "abc" (well-known reference value)
         #expect(hex == "bddd813c634239723171ef3fee98579b94964e3bb1cb3e427262c8c068d52319")
@@ -29,15 +28,15 @@ struct CBORUtilsTests {
 
     @Test("blake2b256 produces 32-byte output")
     func blake2b256OutputLength() throws {
-        let result = try CBORUtils.blake2b256(Data([0xDE, 0xAD, 0xBE, 0xEF]))
+        let result = try Utils.blake2b256(Data([0xDE, 0xAD, 0xBE, 0xEF]))
         #expect(result.count == 32)
     }
 
     @Test("blake2b256 is deterministic")
     func blake2b256Deterministic() throws {
         let input = Data("Cardano".utf8)
-        let result1 = try CBORUtils.blake2b256(input)
-        let result2 = try CBORUtils.blake2b256(input)
+        let result1 = try Utils.blake2b256(input)
+        let result2 = try Utils.blake2b256(input)
         #expect(result1 == result2)
     }
 
@@ -50,7 +49,7 @@ struct CBORUtilsTests {
             redeemers: .list([sampleRedeemer(index: 0)])
         )
 
-        let models = try CBORUtils.languageViewsCostModels(
+        let models = try Utils.languageViewsCostModels(
             witnessSet: witnessSet,
             protocolParams: params
         )
@@ -66,7 +65,7 @@ struct CBORUtilsTests {
             plutusV3Script: .list([PlutusV3Script(data: Data([0x03]))])
         )
 
-        let models = try CBORUtils.languageViewsCostModels(
+        let models = try Utils.languageViewsCostModels(
             witnessSet: witnessSet,
             protocolParams: params
         )
@@ -84,11 +83,11 @@ struct CBORUtilsTests {
         let params = try loadProtocolParams()
         let witnessSet = makeWitnessSetWithV2ScriptAndDatum()
 
-        let first = try CBORUtils.scriptDataHash(
+        let first = try Utils.scriptDataHash(
             witnessSet: witnessSet,
             protocolParams: params
         )
-        let second = try CBORUtils.scriptDataHash(
+        let second = try Utils.scriptDataHash(
             witnessSet: witnessSet,
             protocolParams: params
         )
@@ -103,11 +102,11 @@ struct CBORUtilsTests {
         let baseWitness = makeWitnessSetWithV2ScriptAndDatum(datumValue: 42)
         let changedDatumWitness = makeWitnessSetWithV2ScriptAndDatum(datumValue: 43)
 
-        let baseHash = try CBORUtils.scriptDataHash(
+        let baseHash = try Utils.scriptDataHash(
             witnessSet: baseWitness,
             protocolParams: params
         )
-        let changedHash = try CBORUtils.scriptDataHash(
+        let changedHash = try Utils.scriptDataHash(
             witnessSet: changedDatumWitness,
             protocolParams: params
         )
@@ -134,11 +133,11 @@ struct CBORUtilsTests {
             redeemers: .list([redeemer])
         )
 
-        let v1Hash = try CBORUtils.scriptDataHash(
+        let v1Hash = try Utils.scriptDataHash(
             witnessSet: v1Witnesses,
             protocolParams: params
         )
-        let v2Hash = try CBORUtils.scriptDataHash(
+        let v2Hash = try Utils.scriptDataHash(
             witnessSet: v2Witnesses,
             protocolParams: params
         )

@@ -41,12 +41,20 @@ extension ValidationContext {
         // Collect de-duplicated input references from NecessaryData, then resolve each UTxO.
         let needed = NecessaryData.from(transaction)
         var resolvedInputs: [UTxO] = []
+        var spentInputRefs: [TransactionInput] = []
         for ref in needed.inputs {
             guard let input = try? TransactionInput(from: ref.transactionId, index: ref.index) else {
                 continue
             }
-            if let (utxo, _) = try await chainContext.utxo(input: input) {
+            if let (utxo, isSpent) = try await chainContext.utxo(input: input) {
                 resolvedInputs.append(utxo)
+                if isSpent {
+                    // Blockfrost/Koios explicitly tell us this UTxO was consumed.
+                    spentInputRefs.append(input)
+                }
+                // nil: UTxO not found — backends like cardano-cli and Ogmios only return
+                // unspent UTxOs so nil could mean spent or never existed. Let the
+                // badInput check in TransactionLimitsRule handle this case.
             }
         }
 
@@ -290,6 +298,7 @@ extension ValidationContext {
 
         return ValidationContext(
             resolvedInputs: resolvedInputs,
+            spentInputRefs: spentInputRefs,
             currentSlot: UInt64(max(0, slot)),
             network: network,
             accountContexts: accountContexts,

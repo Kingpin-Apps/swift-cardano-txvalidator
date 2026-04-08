@@ -105,5 +105,5 @@ if report.isValid {
 
 ### Utilities
 
-- ``CBORUtils``
+- ``Utils``
 - ``TxValidatorError``
