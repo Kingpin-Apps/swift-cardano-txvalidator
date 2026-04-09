@@ -37,6 +37,7 @@ public struct RegistrationRule: ValidationRule {
         // Build initial registration state from context
         var state = RegistrationState()
         state.loadInitialState(from: context)
+        state.preloadTxRegistrations(from: certs.asList)
 
         var issues: [ValidationError] = []
 
@@ -90,6 +91,11 @@ private struct RegistrationState {
     /// Committee hot credentials registered in this tx: cold credential → first cert index.
     var committeeHotRegistrationsInTx: [String: UInt32] = [:]
 
+    /// Stake credentials that have a registration cert anywhere in this tx (lookahead).
+    /// Used to suppress false `stakeNotRegistered` errors when a delegation cert appears
+    /// before its corresponding registration cert in the certificate list.
+    var stakeRegistrationsPendingInTx: Set<String> = []
+
     mutating func loadInitialState(from context: ValidationContext) {
         for account in context.accountContexts where account.isRegistered {
             initialAccounts.insert(account.rewardAddress)
@@ -99,6 +105,27 @@ private struct RegistrationState {
         }
         for drep in context.drepContexts where drep.isRegistered {
             initialDReps.insert(drep.drepId)
+        }
+    }
+
+    /// Pre-scan all certificates to collect stake credentials that will be registered
+    /// somewhere in this transaction, regardless of cert ordering.
+    mutating func preloadTxRegistrations(from certs: [Certificate]) {
+        for cert in certs {
+            switch cert {
+            case .stakeRegistration(let c):
+                stakeRegistrationsPendingInTx.insert("\(c.stakeCredential)")
+            case .register(let c):
+                stakeRegistrationsPendingInTx.insert("\(c.stakeCredential)")
+            case .stakeRegisterDelegate(let c):
+                stakeRegistrationsPendingInTx.insert("\(c.stakeCredential)")
+            case .voteRegisterDelegate(let c):
+                stakeRegistrationsPendingInTx.insert("\(c.stakeCredential)")
+            case .stakeVoteRegisterDelegate(let c):
+                stakeRegistrationsPendingInTx.insert("\(c.stakeCredential)")
+            default:
+                break
+            }
         }
     }
 
@@ -601,7 +628,10 @@ private extension RegistrationRule {
         id: String, certIndex: UInt32, fieldPath: String,
         state: RegistrationState, issues: inout [ValidationError]
     ) {
-        if !state.isAccountRegistered(id) {
+        // If the stake key is registered (on-chain or earlier in this tx), or will be
+        // registered by another cert in this same tx, the delegation is valid.
+        if !state.isAccountRegistered(id)
+            && !state.stakeRegistrationsPendingInTx.contains(id) {
             issues.append(ValidationError(
                 kind: .stakeNotRegistered,
                 fieldPath: fieldPath,

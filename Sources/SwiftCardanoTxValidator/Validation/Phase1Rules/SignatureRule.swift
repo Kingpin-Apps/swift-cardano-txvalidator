@@ -35,11 +35,6 @@ public struct SignatureRule: ValidationRule {
         let vkeyWitnesses = witnesses.vkeyWitnesses?.asList ?? []
         let bootstrapWitnesses = witnesses.bootstrapWitness?.asList ?? []
 
-        // Nothing to verify if neither vkey nor bootstrap witnesses are present.
-        guard !vkeyWitnesses.isEmpty || !bootstrapWitnesses.isEmpty else {
-            return []
-        }
-
         var issues: [ValidationError] = []
 
         // -----------------------------------------------------------------------

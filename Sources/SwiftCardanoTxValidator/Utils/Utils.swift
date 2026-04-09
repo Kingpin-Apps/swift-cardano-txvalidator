@@ -100,15 +100,6 @@ public enum Utils {
         let datumBytes = try datums?.toCBORData() ?? Data()
         let redeemerBytes = try redeemers?.toCBORData() ?? Data()
         
-        print("Redeemers: \(redeemers)")
-        print("Redeemers CBOR: \(redeemerBytes.toHex)")
-        
-        print("Datums: \(datums)")
-        print("Datums CBOR: \(datumBytes.toHex)")
-        
-        print("Cost models: \(costModels)")
-        print("Cost models CBOR: \(costModelsBytes.toHex)")
-        
         return ScriptDataHash(
             payload: try SwiftNcal.Hash().blake2b(
                 data: redeemerBytes + datumBytes + costModelsBytes,

@@ -127,7 +127,7 @@ public struct TxValidator: Sendable {
         )
 
         let phase2Outcome: Phase2Outcome?
-        if let chainContext {
+        if let chainContext, transaction.transactionWitnessSet.redeemers != nil {
             phase2Outcome = try await phase2.evaluate(
                 transaction: transaction,
                 resolvedInputs: context.resolvedInputs,
@@ -210,7 +210,7 @@ public struct TxValidator: Sendable {
         )
 
         let phase2Outcome: Phase2Outcome?
-        if let chainContext {
+        if let chainContext, transaction.transactionWitnessSet.redeemers != nil {
             phase2Outcome = try await phase2.evaluate(
                 transaction: transaction,
                 resolvedInputs: context.resolvedInputs,
