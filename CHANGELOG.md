@@ -1,3 +1,9 @@
+## 0.1.8 (2026-04-08)
+
+### Fix
+
+- dont check phase 2 if not needed
+
 ## 0.1.7 (2026-04-08)
 
 ### Fix
