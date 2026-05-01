@@ -14,11 +14,11 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-core.git", from: "0.3.8"),
-        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-chain.git", from: "0.2.16"),
-        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-uplc.git", from: "0.1.2"),
+        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-core.git", from: "0.3.16"),
+        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-chain.git", from: "0.3.2"),
+        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-uplc.git", from: "0.1.4"),
         .package(url: "https://github.com/Kingpin-Apps/swift-ncal.git", from: "0.2.2"),
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.5.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.12.0"),
     ],
     targets: [
         .target(

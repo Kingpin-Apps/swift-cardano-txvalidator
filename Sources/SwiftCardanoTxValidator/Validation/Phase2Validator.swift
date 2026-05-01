@@ -45,8 +45,10 @@ public struct Phase2Validator: Sendable {
         guard transaction.transactionWitnessSet.redeemers != nil else {
             return Phase2Outcome(result: .valid, redeemerEvalResults: [])
         }
+        
+        let protocolParams = try await chainContext.protocolParameters()
 
-        let phaseTwo = PhaseTwo(chainContext: chainContext)
+        let phaseTwo = try PhaseTwo(protocolParameters: protocolParams)
         let phaseTwoResult = try await phaseTwo.evaluate(
             transaction: transaction,
             resolvedInputs: resolvedInputs
