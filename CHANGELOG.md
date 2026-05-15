@@ -1,3 +1,9 @@
+## 0.1.10 (2026-05-15)
+
+### Fix
+
+- improve swift version compatibility
+
 ## 0.1.9 (2026-05-01)
 
 ### Fix
