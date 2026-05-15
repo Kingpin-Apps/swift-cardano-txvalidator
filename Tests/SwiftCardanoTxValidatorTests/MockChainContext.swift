@@ -21,27 +21,30 @@ struct MockChainContext: ChainContext, @unchecked Sendable {
     var type: ContextType { .offline }
     var networkId: NetworkId { .testnet }
 
-    // MARK: - Closures required by ChainContext
+    // MARK: - Methods required by ChainContext
 
-    var protocolParameters: () async throws -> ProtocolParameters {
-        let pp = _protocolParams
-        return { pp }
+    func protocolParameters() async throws -> ProtocolParameters {
+        _protocolParams
     }
 
-    var genesisParameters: () async throws -> GenesisParameters {
-        return { throw MockError.notImplemented }
+    func genesisParameters() async throws -> GenesisParameters {
+        throw MockError.notImplemented
     }
 
-    var epoch: () async throws -> Int {
-        return { 0 }
+    func epoch() async throws -> Int {
+        0
     }
 
-    var era: () async throws -> Era? {
-        return { .conway }
+    func era() async throws -> Era? {
+        .conway
     }
 
-    var lastBlockSlot: () async throws -> Int {
-        return { 0 }
+    func lastBlockSlot() async throws -> Int {
+        0
+    }
+
+    func chainTip() async throws -> ChainTip {
+        throw MockError.notImplemented
     }
 
     // MARK: - Stub methods
@@ -55,6 +58,10 @@ struct MockChainContext: ChainContext, @unchecked Sendable {
     }
 
     func submitTxCBOR(cbor: Data) async throws -> String {
+        throw MockError.notImplemented
+    }
+
+    func evaluateTx(tx: Transaction) async throws -> [String: ExecutionUnits] {
         throw MockError.notImplemented
     }
 
