@@ -1,6 +1,6 @@
 import Foundation
 import SwiftCardanoCore
-import SwiftNcal
+import SwiftNaCl
 
 /// Phase-1 signature and vkey witness checks.
 ///

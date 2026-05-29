@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 import SwiftCardanoCore
-import SwiftNcal
+import SwiftNaCl
 @testable import SwiftCardanoTxValidator
 
 // MARK: - SignatureRule Tests

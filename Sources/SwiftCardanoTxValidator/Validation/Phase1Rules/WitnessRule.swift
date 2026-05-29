@@ -1,6 +1,6 @@
 import Foundation
 import SwiftCardanoCore
-import SwiftNcal
+import SwiftNaCl
 
 /// Phase-1 structural checks on the transaction witness set.
 ///

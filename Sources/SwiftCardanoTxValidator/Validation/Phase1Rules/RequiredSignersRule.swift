@@ -1,6 +1,6 @@
 import Foundation
 import SwiftCardanoCore
-import SwiftNcal
+import SwiftNaCl
 
 /// Verifies that every key hash listed in `required_signers` has a corresponding
 /// vkey witness whose Blake2b-224 hash matches that value.
