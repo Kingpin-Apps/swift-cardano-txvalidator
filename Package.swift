@@ -14,10 +14,10 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-core.git", from: "0.3.21"),
-        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-chain.git", from: "0.4.2"),
-        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-uplc.git", from: "0.1.7"),
-        .package(url: "https://github.com/Kingpin-Apps/swift-ncal.git", from: "0.2.3"),
+        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-core.git", from: "0.4.3"),
+        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-chain.git", from: "0.5.0"),
+        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-uplc.git", from: "0.3.0"),
+        .package(url: "https://github.com/Kingpin-Apps/swift-nacl.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.12.0"),
     ],
     targets: [
@@ -27,7 +27,7 @@ let package = Package(
                 .product(name: "SwiftCardanoCore", package: "swift-cardano-core"),
                 .product(name: "SwiftCardanoChain", package: "swift-cardano-chain"),
                 .product(name: "SwiftCardanoUPLC", package: "swift-cardano-uplc"),
-                .product(name: "SwiftNcal", package: "swift-ncal"),
+                .product(name: "SwiftNaCl", package: "swift-nacl"),
                 .product(name: "Logging", package: "swift-log"),
             ],
             resources: [
