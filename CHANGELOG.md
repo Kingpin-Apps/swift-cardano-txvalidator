@@ -1,3 +1,10 @@
+## 0.2.0 (2026-05-29)
+
+### Feat
+
+- widen money/slot/epoch types and migrate to CBORCodable for core 0.4.x
+- rename SwiftNcal imports to SwiftNaCl
+
 ## 0.1.11 (2026-05-15)
 
 ### Fix
