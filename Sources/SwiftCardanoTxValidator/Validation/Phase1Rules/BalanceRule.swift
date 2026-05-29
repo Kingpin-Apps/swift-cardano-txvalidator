@@ -338,7 +338,7 @@ public struct BalanceRule: ValidationRule {
         )
 
         // Sum of spending input values — ListOrOrderedSet requires .asArray for iteration
-        var inputLovelace: Int = 0
+        var inputLovelace: Int64 = 0
         for input in body.inputs.asArray {
             let key = "\(input.transactionId)#\(input.index)"
             guard let resolved = utxoMap[key] else {
@@ -347,24 +347,24 @@ public struct BalanceRule: ValidationRule {
             inputLovelace += resolved.amount.coin
         }
 
-        // Sum of withdrawals (add to input side) — Coin = UInt64, reduce then convert to Int
-        let withdrawalLovelace: Int
+        // Sum of withdrawals (add to input side) — Coin = UInt64, reduce then convert to Int64
+        let withdrawalLovelace: Int64
         if let withdrawals = body.withdrawals {
             let total: Coin = withdrawals.data.values.reduce(0 as Coin) { acc, coin in acc + coin }
-            withdrawalLovelace = Int(total)
+            withdrawalLovelace = Int64(total)
         } else {
             withdrawalLovelace = 0
         }
 
         // Sum of output values
-        let outputLovelace = body.outputs.reduce(0) { $0 + $1.amount.coin }
+        let outputLovelace = body.outputs.reduce(Int64(0)) { $0 + $1.amount.coin }
 
-        // Fee — Coin = UInt64, safe to Int on 64-bit platforms
-        let feeLovelace = Int(bitPattern: UInt(body.fee))
+        // Fee — Coin = UInt64, safe to Int64 on 64-bit platforms
+        let feeLovelace = Int64(body.fee)
 
         // Net deposits: Σ(deposits) - Σ(refunds), goes on the output side.
         // Positive = net ADA locked with protocol; negative = net ADA returned to wallet.
-        var netDepositLovelace: Int = 0
+        var netDepositLovelace: Int64 = 0
         if let certs = body.certificates {
             for cert in certs.asList {
                 switch cert {
@@ -373,9 +373,9 @@ public struct BalanceRule: ValidationRule {
                     case .stakeDeregistration:
                         netDepositLovelace -= protocolParams.stakeAddressDeposit
                     case .register(let r):
-                        netDepositLovelace += Int(r.coin)
+                        netDepositLovelace += Int64(r.coin)
                     case .unregister(let u):
-                        netDepositLovelace -= Int(u.coin)
+                        netDepositLovelace -= Int64(u.coin)
                     case .poolRegistration(let p):
                         // Only count deposit for first-time registration.
                         // Re-registration (pool already exists) is a parameter update — no deposit.
@@ -385,15 +385,15 @@ public struct BalanceRule: ValidationRule {
                             netDepositLovelace += protocolParams.stakePoolDeposit
                         }
                     case .registerDRep(let r):
-                        netDepositLovelace += Int(r.coin)
+                        netDepositLovelace += Int64(r.coin)
                     case .unRegisterDRep(let u):
-                        netDepositLovelace -= Int(u.coin)
+                        netDepositLovelace -= Int64(u.coin)
                     case .stakeRegisterDelegate(let d):
-                        netDepositLovelace += Int(d.coin)
+                        netDepositLovelace += Int64(d.coin)
                     case .voteRegisterDelegate(let d):
-                        netDepositLovelace += Int(d.coin)
+                        netDepositLovelace += Int64(d.coin)
                     case .stakeVoteRegisterDelegate(let d):
-                        netDepositLovelace += Int(d.coin)
+                        netDepositLovelace += Int64(d.coin)
                     default:
                         break
                 }
@@ -401,11 +401,11 @@ public struct BalanceRule: ValidationRule {
         }
         // Governance action deposits (Conway)
         if let proposals = body.proposalProcedures {
-            netDepositLovelace += proposals.elementsOrdered.count * protocolParams.govActionDeposit
+            netDepositLovelace += Int64(proposals.elementsOrdered.count) * protocolParams.govActionDeposit
         }
 
         // Treasury donation (Conway) — PositiveCoin.value is UInt
-        let donationLovelace = body.treasuryDonation.map { Int($0.value) } ?? 0
+        let donationLovelace = body.treasuryDonation.map { Int64($0.value) } ?? 0
         
         if inputLovelace > 0 {
             

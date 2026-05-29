@@ -50,7 +50,7 @@ public struct TransactionLimitsRule: ValidationRule {
 
         // 3. Total declared execution units must not exceed maxTxExecutionUnits
         if let redeemers = witnesses.redeemers {
-            var totalMem: Int = 0
+            var totalMem: Int64 = 0
             var totalSteps: Int64 = 0
 
             switch redeemers {
@@ -58,13 +58,13 @@ public struct TransactionLimitsRule: ValidationRule {
                 for r in list {
                     if let eu = r.exUnits {
                         totalMem  += eu.mem
-                        totalSteps += Int64(eu.steps)
+                        totalSteps += eu.steps
                     }
                 }
             case .map(let map):
                 for rv in map.dictionary.values {
                     totalMem  += rv.exUnits.mem
-                    totalSteps += Int64(rv.exUnits.steps)
+                    totalSteps += rv.exUnits.steps
                 }
             }
 

@@ -1,7 +1,7 @@
 import Foundation
+import CBORCodable
 import SwiftCardanoCore
-import SwiftNcal
-import PotentCBOR
+import SwiftNaCl
 
 /// Utilities used by validation rules.
 public enum Utils {
@@ -101,7 +101,7 @@ public enum Utils {
         let redeemerBytes = try redeemers?.toCBORData() ?? Data()
         
         return ScriptDataHash(
-            payload: try SwiftNcal.Hash().blake2b(
+            payload: try SwiftNaCl.Hash().blake2b(
                 data: redeemerBytes + datumBytes + costModelsBytes,
                 digestSize: SCRIPT_DATA_HASH_SIZE,
                 encoder: RawEncoder.self
@@ -128,13 +128,13 @@ public enum Utils {
     public static func languageViewsCostModels(
         witnessSet: TransactionWitnessSet,
         protocolParams: ProtocolParameters
-    ) throws -> [Int: [Int]] {
+    ) throws -> [Int: [Int64]] {
         var version = -1
         let usesV1 = witnessSet.plutusV1Script != nil
         let usesV2 = witnessSet.plutusV2Script != nil
         let usesV3 = witnessSet.plutusV3Script != nil
 
-        var costModels: [Int: [Int]] = [:]
+        var costModels: [Int: [Int64]] = [:]
         if usesV1 {
             version = 1
             costModels[version - 1] = protocolParams.costModels.getVersion(version)

@@ -127,7 +127,7 @@ public struct CollateralRule: ValidationRule {
                 }
             )
 
-            var totalCollateralAda: Int = 0
+            var totalCollateralAda: Int64 = 0
             for input in inputs.asList {
                 let key = "\(input.transactionId)#\(input.index)"
                 if let resolved = resolvedMap[key] {
@@ -209,7 +209,7 @@ public struct CollateralRule: ValidationRule {
         // Collateral return min-ADA check
         if let ret = body.collateralReturn {
             if let retBytes = try? ret.toCBORData() {
-                let minAda = protocolParams.utxoCostPerByte * (160 + retBytes.count)
+                let minAda = protocolParams.utxoCostPerByte * Int64(160 + retBytes.count)
                 if ret.amount.coin < minAda {
                     issues.append(ValidationError(
                         kind: .collateralReturnTooSmall,

@@ -90,7 +90,7 @@ public struct FeeRule: ValidationRule {
                 )
             } else if let refCostPerByte = protocolParams.minFeeRefScriptCostPerByte, refCostPerByte > 0 {
                 // Flat model fallback
-                minFee += UInt64(refCostPerByte * totalRefScriptBytes)
+                minFee += UInt64(refCostPerByte * Int64(totalRefScriptBytes))
             }
         }
 

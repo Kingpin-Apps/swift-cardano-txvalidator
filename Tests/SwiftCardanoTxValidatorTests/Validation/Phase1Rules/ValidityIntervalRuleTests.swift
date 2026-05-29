@@ -6,7 +6,7 @@ import SwiftCardanoCore
 @Suite("ValidityIntervalRule")
 struct ValidityIntervalRuleTests {
 
-    private func makeTx(validityStart: Int? = nil, ttl: Int? = nil) throws -> Transaction {
+    private func makeTx(validityStart: SlotNumber? = nil, ttl: SlotNumber? = nil) throws -> Transaction {
         let txId = TransactionId(payload: Data(repeating: 0xAA, count: 32))
         let input = TransactionInput(transactionId: txId, index: 0)
         let addr = try Address(

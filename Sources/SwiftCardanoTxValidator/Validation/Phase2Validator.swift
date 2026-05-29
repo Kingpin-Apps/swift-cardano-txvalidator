@@ -149,7 +149,7 @@ public struct Phase2Validator: Sendable {
     private func declaredExUnits(
         for index: Int,
         in witnesses: TransactionWitnessSet
-    ) -> (mem: Int, steps: Int)? {
+    ) -> (mem: Int64, steps: Int64)? {
         guard let redeemers = witnesses.redeemers else { return nil }
         switch redeemers {
         case .list(let list):

@@ -52,10 +52,10 @@ public struct TransactionView: Sendable, Codable, Equatable {
     // MARK: - Validity
 
     /// Lower validity slot (TTL start).
-    public let validityStart: Int?
+    public let validityStart: SlotNumber?
 
     /// Upper validity slot (TTL end / time-to-live).
-    public let ttl: Int?
+    public let ttl: SlotNumber?
 
     // MARK: - Signers / Network
 
@@ -72,7 +72,7 @@ public struct TransactionView: Sendable, Codable, Equatable {
 
     /// Human-readable mint/burn policy map, if present.
     /// Keys are policy IDs (hex); values are `{ assetName: amount }`.
-    public let mint: [String: [String: Int]]?
+    public let mint: [String: [String: Int64]]?
 
     // MARK: - Auxiliary
 
@@ -86,9 +86,9 @@ public struct OutputView: Sendable, Codable, Equatable {
     /// Bech32 or hex address string.
     public let address: String
     /// ADA value in lovelace.
-    public let lovelace: Int
+    public let lovelace: Int64
     /// Multi-asset policy map `{ policyId: { assetName: amount } }`, if present.
-    public let multiAsset: [String: [String: Int]]?
+    public let multiAsset: [String: [String: Int64]]?
     /// Whether the output carries an inline datum.
     public let hasInlineDatum: Bool
     /// Whether the output carries a datum hash.
@@ -142,7 +142,7 @@ extension TransactionView {
             redeemerCount = 0
         }
 
-        let mint: [String: [String: Int]]? = body.mint.map { multiAsset in
+        let mint: [String: [String: Int64]]? = body.mint.map { multiAsset in
             Dictionary(uniqueKeysWithValues: multiAsset.data.map { (policyId, asset) in
                 let assetMap = Dictionary(
                     uniqueKeysWithValues: asset.data.map { (name, qty) in
@@ -188,7 +188,7 @@ extension OutputView {
             addressStr = output.address.toBytes().hexEncodedString()
         }
 
-        let multiAsset: [String: [String: Int]]?
+        let multiAsset: [String: [String: Int64]]?
         if output.amount.multiAsset.data.isEmpty {
             multiAsset = nil
         } else {

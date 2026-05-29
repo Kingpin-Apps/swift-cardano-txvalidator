@@ -36,8 +36,8 @@ public struct OutputValueRule: ValidationRule {
             }
 
             // Minimum ADA check
-            let minAda = protocolParams.utxoCostPerByte * (160 + outputBytes.count)
-            let lovelace = output.amount.coin  // Int
+            let minAda = protocolParams.utxoCostPerByte * Int64(160 + outputBytes.count)
+            let lovelace = output.amount.coin  // Int64
 
             if lovelace < minAda {
                 issues.append(ValidationError(

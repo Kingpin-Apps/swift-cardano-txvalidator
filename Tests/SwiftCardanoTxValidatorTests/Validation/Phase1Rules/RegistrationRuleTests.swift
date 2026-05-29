@@ -123,7 +123,7 @@ struct RegistrationRuleTests {
             poolOperator: poolKH,
             vrfKeyHash: vrfKH,
             pledge: 100_000_000,
-            cost: pp.minPoolCost - 1, // Below minimum
+            cost: Int(pp.minPoolCost - 1), // Below minimum
             margin: UnitInterval(numerator: 1, denominator: 100),
             rewardAccount: rewardAccount,
             poolOwners: .list([owner]),
@@ -156,7 +156,7 @@ struct RegistrationRuleTests {
             poolOperator: poolKH,
             vrfKeyHash: vrfKH,
             pledge: 100_000_000,
-            cost: pp.minPoolCost,
+            cost: Int(pp.minPoolCost),
             margin: UnitInterval(numerator: 1, denominator: 100),
             rewardAccount: rewardAccount,
             poolOwners: .list([owner]),
