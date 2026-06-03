@@ -1,3 +1,9 @@
+## 0.2.1 (2026-06-02)
+
+### Fix
+
+- update dependencies and minor fixes
+
 ## 0.2.0 (2026-05-29)
 
 ### Feat
