@@ -187,14 +187,14 @@ extension ValidationContext {
                 let committeeHex = _committeeCredential.credential.payload.toHex
                 guard seenCommittee.insert(committeeHex).inserted else { continue }
                 
-                guard let memberInfo = try? await chainContext.committeeMemberInfo(committeeMember: _committeeCredential) else {
+                guard let memberInfo = try? await chainContext.committeeMemberInfo(cold: _committeeCredential) else {
                     continue
                 }
-                
+
                 currentCommitteeMembers.append(CommitteeInputContext(
                     committeeColdCredential: memberInfo.coldCredential.description,
                     committeeHotCredential: memberInfo.hotCredential?.description,
-                    isResigned: memberInfo.status == .expired || memberInfo.status == .unrecognized
+                    isResigned: memberInfo.status == .some(.expired) || memberInfo.status == .some(.unrecognized)
                 ))
             }
         }
@@ -248,14 +248,14 @@ extension ValidationContext {
                             let committeeHex = coldCredential.credential.payload.toHex
                             guard seenCommittee.insert(committeeHex).inserted else { continue }
                             
-                            guard let memberInfo = try? await chainContext.committeeMemberInfo(committeeMember: coldCredential) else {
+                            guard let memberInfo = try? await chainContext.committeeMemberInfo(cold: coldCredential) else {
                                 continue
                             }
-                            
+
                             potentialCommitteeMembers.append(CommitteeInputContext(
                                 committeeColdCredential: memberInfo.coldCredential.description,
                                 committeeHotCredential: memberInfo.hotCredential?.description,
-                                isResigned: memberInfo.status == .expired || memberInfo.status == .unrecognized
+                                isResigned: memberInfo.status == .some(.expired) || memberInfo.status == .some(.unrecognized)
                             ))
                             
                         }

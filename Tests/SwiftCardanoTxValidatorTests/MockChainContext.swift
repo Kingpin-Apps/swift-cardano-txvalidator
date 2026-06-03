@@ -96,7 +96,11 @@ struct MockChainContext: ChainContext, @unchecked Sendable {
         throw MockError.notImplemented
     }
     
-    func committeeMemberInfo(committeeMember: SwiftCardanoCore.CommitteeColdCredential) async throws -> SwiftCardanoChain.CommitteeMemberInfo {
+    func committeeMemberInfo(cold: SwiftCardanoCore.CommitteeColdCredential) async throws -> SwiftCardanoChain.CommitteeMemberInfo {
+        throw MockError.notImplemented
+    }
+
+    func committeeMemberInfo(hot: SwiftCardanoCore.CommitteeHotCredential) async throws -> SwiftCardanoChain.CommitteeMemberInfo {
         throw MockError.notImplemented
     }
 }

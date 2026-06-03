@@ -1,5 +1,5 @@
 {
-  "originHash" : "423e67a3e529afc57d8605d8d82075813af0d08cb2c18d2d4184c52c9d4a2b46",
+  "originHash" : "72cb971e3f48a9695643549ead3d7ab0c23bd056281083b07d6b7d179e73eda8",
   "pins" : [
     {
       "identity" : "base32",
@@ -132,8 +132,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-blockfrost-api.git",
       "state" : {
-        "revision" : "1e4db8c4e4af8c59085e06f18c4185c47fac1a19",
-        "version" : "0.2.0"
+        "revision" : "b7ade6420034b41606c8a55753588cf0a765f67a",
+        "version" : "0.2.1"
       }
     },
     {
@@ -150,8 +150,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cardano-chain.git",
       "state" : {
-        "revision" : "b8885515eed6c48cdc546ba1c162f777fef06a82",
-        "version" : "0.5.0"
+        "revision" : "52c5d85c61085e3806c06c062ce4dc89e7e74e8d",
+        "version" : "0.5.3"
       }
     },
     {
@@ -159,8 +159,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cardano-core.git",
       "state" : {
-        "revision" : "096243346ab6a9e6c5a57992cb1c694a9795dc52",
-        "version" : "0.4.3"
+        "revision" : "45afa3871128b5581ffc2ee1598ba5c53a5b572b",
+        "version" : "0.4.5"
       }
     },
     {
@@ -186,8 +186,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cardano-utils.git",
       "state" : {
-        "revision" : "131019429e2d918891928944997799ee060f4113",
-        "version" : "0.5.1"
+        "revision" : "5396251b61ed2b786caa394f7fa2b2349e4b7444",
+        "version" : "0.5.2"
       }
     },
     {
