@@ -54,7 +54,10 @@ struct MockChainContext: ChainContext, @unchecked Sendable {
     }
 
     func utxo(input: TransactionInput) async throws -> (UTxO, isSpent: Bool)? {
-        throw MockError.notImplemented
+        // nil = "UTxO not found", the behavior of cli/Ogmios-style backends that only
+        // return unspent UTxOs. Lets `ValidationContext.from` resolve to an empty input set
+        // rather than failing.
+        nil
     }
 
     func submitTxCBOR(cbor: Data) async throws -> String {

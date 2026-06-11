@@ -1,5 +1,5 @@
 {
-  "originHash" : "72cb971e3f48a9695643549ead3d7ab0c23bd056281083b07d6b7d179e73eda8",
+  "originHash" : "14d49b0a482b54cc06109473d7d78e0e714e3e8852e4e04e35b7c7c9630b0e73",
   "pins" : [
     {
       "identity" : "base32",
@@ -141,8 +141,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-blst.git",
       "state" : {
-        "revision" : "d1cbab91dde4389744b3ba4563564787f3d7bb56",
-        "version" : "0.1.6"
+        "revision" : "7ff9e2c24054140b9f6a1f101c4a169bcca8f8cf",
+        "version" : "0.1.7"
       }
     },
     {
@@ -150,8 +150,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cardano-chain.git",
       "state" : {
-        "revision" : "52c5d85c61085e3806c06c062ce4dc89e7e74e8d",
-        "version" : "0.5.3"
+        "revision" : "4c2e7c06bd9bcbb484973d6c035c63385af4927d",
+        "version" : "0.6.0"
       }
     },
     {
@@ -159,8 +159,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cardano-core.git",
       "state" : {
-        "revision" : "45afa3871128b5581ffc2ee1598ba5c53a5b572b",
-        "version" : "0.4.5"
+        "revision" : "5cb18cb2665a7ca5cf99c98d95f432dcd607427d",
+        "version" : "0.4.6"
       }
     },
     {
@@ -177,8 +177,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cardano-uplc.git",
       "state" : {
-        "revision" : "be48d1905270e0bb639267570edd7a0d50cca9f0",
-        "version" : "0.3.0"
+        "revision" : "189139e26c3f26b8c44aa3a6f429bebfd22ad188",
+        "version" : "0.3.2"
       }
     },
     {
@@ -330,8 +330,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-nacl.git",
       "state" : {
-        "revision" : "23df3eed6c4a9ac8f906260253604fdb74f7ed7f",
-        "version" : "1.0.1"
+        "revision" : "31015115313f476e068ea57765fb295a2c1a6f01",
+        "version" : "1.0.2"
       }
     },
     {

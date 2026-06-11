@@ -42,4 +42,60 @@ struct ValidationErrorTests {
         #expect(ValidationError.Kind.stakeAlreadyRegistered.rawValue == "stakeAlreadyRegistered")
         #expect(ValidationError.Kind.committeeAlreadyAuthorized.rawValue == "committeeAlreadyAuthorized")
     }
+
+    // MARK: - Kind.description
+
+    /// Every `Kind` case, so `description` is exercised for all of them.
+    static let allKinds: [ValidationError.Kind] = [
+        .feeTooSmall, .feeTooBig, .valueNotConserved, .tooManyCollateralInputs,
+        .noCollateralInputs, .insufficientCollateral, .incorrectTotalCollateral,
+        .collateralLockedByScript, .collateralContainsNonAdaAssets, .collateralReturnTooSmall,
+        .collateralUnnecessary, .totalCollateralNotDeclared, .collateralUsesRewardAddress,
+        .scriptDataHashMismatch, .outsideValidityInterval, .missingRequiredSigner,
+        .missingVKeyWitness, .extraneousSignature, .invalidSignature, .outputTooSmall,
+        .outputValueTooBig, .networkIdMismatch, .auxiliaryDataHashMissing,
+        .auxiliaryDataHashUnexpected, .auxiliaryDataHashMismatch, .inputSetEmpty,
+        .maximumTransactionSizeExceeded, .executionUnitsTooLarge, .referenceInputOverlapsWithInput,
+        .badInput, .inputAlreadySpent, .inputsNotSorted, .plutusScriptFailed, .missingRedeemer,
+        .missingDatum, .missingScript, .extraneousRedeemer, .executionBudgetExceeded,
+        .excessiveExecutionUnits, .extraneousScript, .extraneousDatum, .nativeScriptFailed,
+        .depositMismatch, .treasuryValueMismatch, .wrongWithdrawalAmount,
+        .withdrawalNotDelegatedToDRep, .rewardAccountNotExisting,
+        .cannotCheckStakeDeregistrationRefund, .cannotCheckDRepDeregistrationRefund,
+        .stakeAlreadyRegistered, .stakeNotRegistered, .stakeNonZeroAccountBalance,
+        .stakePoolNotRegistered, .wrongRetirementEpoch, .stakePoolCostTooLow,
+        .committeeIsUnknown, .committeeHasPreviouslyResigned, .poolAlreadyRegistered,
+        .drepAlreadyRegistered, .committeeAlreadyAuthorized, .drepNotRegistered,
+        .duplicateRegistrationInTx, .duplicateCommitteeColdResignationInTx,
+        .duplicateCommitteeHotRegistrationInTx, .govActionsDoNotExist, .invalidPrevGovActionId,
+        .proposalCantFollow, .malformedProposal, .conflictingCommitteeUpdate,
+        .expirationEpochTooSmall, .invalidConstitutionPolicyHash,
+        .proposalProcedureNetworkIdMismatch, .treasuryWithdrawalsNetworkIdMismatch,
+        .zeroTreasuryWithdrawals, .proposalReturnAccountDoesNotExist,
+        .treasuryWithdrawalReturnAccountDoesNotExist, .disallowedVoter, .votingOnExpiredGovAction,
+        .voterDoesNotExist, .missingBootstrapWitness, .malformedCBOR, .unknown,
+    ]
+
+    @Test("Kind.description is non-empty for every kind")
+    func descriptionNonEmptyForAllKinds() {
+        for kind in Self.allKinds {
+            #expect(!kind.description.isEmpty, "description was empty for \(kind.rawValue)")
+        }
+    }
+
+    @Test("Kind.description returns expected human-readable strings")
+    func descriptionSpotChecks() {
+        #expect(ValidationError.Kind.feeTooSmall.description == "Fee Too Small")
+        #expect(ValidationError.Kind.collateralContainsNonAdaAssets.description
+            == "Collateral Contains Non-Ada Assets")
+        #expect(ValidationError.Kind.missingVKeyWitness.description == "Missing Verification Key witness")
+        #expect(ValidationError.Kind.unknown.description == "Unknown")
+        #expect(ValidationError.Kind.malformedCBOR.description == "Malformed CBOR")
+    }
+
+    @Test("Kind.description is unique per kind")
+    func descriptionUnique() {
+        let descriptions = Self.allKinds.map { $0.description }
+        #expect(Set(descriptions).count == descriptions.count)
+    }
 }
