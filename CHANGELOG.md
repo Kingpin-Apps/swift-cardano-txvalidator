@@ -1,3 +1,9 @@
+## 0.2.2 (2026-06-10)
+
+### Fix
+
+- update dependencies and add more tests
+
 ## 0.2.1 (2026-06-02)
 
 ### Fix
