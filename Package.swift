@@ -29,10 +29,10 @@ let package = Package(
                 .product(name: "SwiftCardanoUPLC", package: "swift-cardano-uplc"),
                 .product(name: "SwiftNaCl", package: "swift-nacl"),
                 .product(name: "Logging", package: "swift-log"),
-            ],
-            resources: [
-                .copy("Resources")
             ]
+            // No resources: the target ships no real assets. (A stray `Resources/cz.json` — the
+            // Commitizen config, duplicated from the repo root — was previously `.copy`'d, which
+            // produced a nested-`Resources/` bundle that iOS codesign rejects as "unsuitable".)
         ),
         .testTarget(
             name: "SwiftCardanoTxValidatorTests",
