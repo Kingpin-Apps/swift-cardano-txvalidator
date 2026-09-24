@@ -48,7 +48,19 @@ public struct Phase2Validator: Sendable {
         
         let protocolParams = try await chainContext.protocolParameters()
 
-        let phaseTwo = try PhaseTwo(protocolParameters: protocolParams)
+        // A script sees a transaction's validity interval as POSIX time, so
+        // evaluating one needs to know when the chain's slots happen. Asking the
+        // chain rather than assuming: a wrong answer would make a script's
+        // deadline check pass or fail for the wrong reason. When the chain cannot
+        // say, `PhaseTwo` reports the transaction as unevaluable instead of
+        // pretending the interval is unbounded.
+        let genesis = try? await chainContext.genesisParameters()
+        let slotTimeline = genesis.flatMap { SlotTimeline.forChain(genesis: $0) }
+            ?? (chainContext.networkId == .mainnet ? SlotTimeline.mainnet : nil)
+
+        let phaseTwo = try PhaseTwo(
+            protocolParameters: protocolParams, slotTimeline: slotTimeline
+        )
         let phaseTwoResult = try await phaseTwo.evaluate(
             transaction: transaction,
             resolvedInputs: resolvedInputs
