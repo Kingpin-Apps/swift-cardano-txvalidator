@@ -1,3 +1,9 @@
+## 0.3.4 (2026-09-24)
+
+### Fix
+
+- hash the empty redeemer map when a witness set has no redeemers
+
 ## 0.3.3 (2026-09-24)
 
 ### Fix
