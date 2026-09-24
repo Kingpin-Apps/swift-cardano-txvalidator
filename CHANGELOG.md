@@ -3,6 +3,7 @@
 ### Fix
 
 - hash the empty redeemer map when a witness set has no redeemers
+- carry tag-258 indefinite datum sets through script data hashing
 
 ## 0.3.3 (2026-09-24)
 

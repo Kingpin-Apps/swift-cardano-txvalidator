@@ -19,18 +19,17 @@ struct ScriptDataHashNoRedeemersTests {
     static let firstHash = "3229e2759fbfc00f3a94d5179c4b07ddead1abf0c71d3ee0d22cb5cbb99bdb40"
 
     /// `341b7e56…` — a second, larger transaction of the same shape.
-    ///
-    /// A third mainnet reproducer, `157e6e6c…`, has its datums as `#6.258`
-    /// around an *indefinite* array. It is not exercised here because decoding
-    /// it needs the separate tag-258 indefinite-array fix in swift-cardano-core;
-    /// its on-chain hash is
-    /// `810cc16197b6791d211bc55d36c6ea1c772456473dd7b7e54b1f1fcdfe96269b`.
     static let secondTx = "84a600d901028382582006a40539d900f21d9c3cdb3429468ab285cd218f6443e9aa9c50107f46df2ce103825820204b4ab09d7bac8ba0e6a25185b827a995d6aa9d49645b55a598ca94dffa3bde00825820803f905e09d085644b87d62d1a362a28830f664f2e7dde17a8a17469baa9aad5010184a300581d71c3e28c36c3447315ba5a56f33da6a6ddc1770a876a8d9f0cb3a97c4c011a2973ebc0028201d818590130d8799fd8799f581c1ee35346257cc3977c0fdedd925f37c3db2688eb6c2a9c872619ff93ffd8799fd8799f581c1ee35346257cc3977c0fdedd925f37c3db2688eb6c2a9c872619ff93ffd8799fd8799fd8799f581c07f2a23f223d445581b1654fad2f18e0edade8ae2674fabd2a26ba60ffffffffd87980d8799fd8799f581c1ee35346257cc3977c0fdedd925f37c3db2688eb6c2a9c872619ff93ffd8799fd8799fd8799f581c07f2a23f223d445581b1654fad2f18e0edade8ae2674fabd2a26ba60ffffffffd87980d8799f581cf5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c58209b65707373c4cec488b16151a64d7102dbae16857c500652b5c513650b8d604effd8799fd87a80d8799f1a2936e2c0ff1a4ef7ce94d87980ff1a001e8480d87a80ff83583911a65ca58a4e9c755fa830173d2a5caed458ac0c73f97db7faae2e7e3b52563c5410bff6a0d43ccebb7c37e1f69f5eb260552521adff33b9c21a2210f70058200f0c992426e4081cc9042d70c3b997b9f0894dbbedc24a3c8f39a1dd66e510fb82583901661ae4b23b24ba9656d78b7637e6a66e889fa788c16c88017e494052c2c5baab297046f996aea6faa54eb92b6005bdb22c8288de08064e371a000f4240825839011ee35346257cc3977c0fdedd925f37c3db2688eb6c2a9c872619ff9307f2a23f223d445581b1654fad2f18e0edade8ae2674fabd2a26ba60821a025e8c70a3581c0691b2fecca1ac4f53cb6dfb00b7013e561d1f34403b957cbb5af1faa1454e494748541a0dc916e1581c2d9db8a89f074aa045eab177f23a3395f62ced8b53499a9e4ad46c80a144464c4f571a00031de1581c5b26e685cc5c9ad630bde3e3cd48c694436671f3d25df53777ca60efa1434e564c1a01540db9021a00033bb1031a0bd813eb0758203b308c148cd78090ef1c8e41e30f288b4c04df1a2296fd1c89b320d120bb49750b58207efc665b22a0a873fb5ede28c1c65bafd18e130ee4fc7bc285ab6055d138b9ffa20081825820d324add912c240f1dcbfa7305771c1c2307c9c205cb8f14c7484fbf15911f7cb5840704ee65b8a40cf928d314bcd09cbdd87797efbd7edb2fe2290fa4e347cbf5734f361c85964c30ea3aa26631456e6e818346f8eb3eef7389c8a4848a37e8ee00604d9010281d8799fd8799fd8799f581c1ee35346257cc3977c0fdedd925f37c3db2688eb6c2a9c872619ff93ffd8799fd8799fd8799f581c07f2a23f223d445581b1654fad2f18e0edade8ae2674fabd2a26ba60ffffffffd8799fd8799f581c1ee35346257cc3977c0fdedd925f37c3db2688eb6c2a9c872619ff93ffd8799fd8799fd8799f581c07f2a23f223d445581b1654fad2f18e0edade8ae2674fabd2a26ba60ffffffffd87a80d8799fd8799f581c533bb94a8850ee3ccbe483106489399112b74c905342cb1792a797a044494e4459ff1a40ce4978ff1a001e84801a001e8480fff5d90103a100a11902a2a1636d7367826643617244654d71537465656c537761703a20312e31382e30"
     static let secondHash = "7efc665b22a0a873fb5ede28c1c65bafd18e130ee4fc7bc285ab6055d138b9ff"
 
+    /// `157e6e6c…` — datums as `#6.258` around an *indefinite* array, which
+    /// only decodes once tag-258 indefinite sets are carried through.
+    static let indefiniteTx = "84a500d9010283825820206beee203afc3bb9603df3688462fe7e29dffe16722fc94479abc9ba45daefe018258206c1512e256d47a67eef78dada62dcff9ddb4fb5c3d64a2979b0ec696ece65a6f01825820f8ad8dc5aa265d3b6fa80b3e410666a4c69f74b7809fad09212d0c2d43fad53b04018483581d712c0f418d944902f96424cbc65283a18bd16f29386a4912bda3d8f1f8821a003b8260a1581c279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3fa144534e454b1a0001ff785820b4bbf5a09d9a4eabf59b1b95ba8a7b2c34310d79060ef844fe7a0215069f044082583901636d0d0118a8933ac167d4c448150bb325deaf7a4fdfb44adc7f2f5ae39b5f40aa85fbc121a625d777a776eca1cb4c923426949c997d8828821a001e8480a1581c279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3fa144534e454b1a0005926f82583901636d0d0118a8933ac167d4c448150bb325deaf7a4fdfb44adc7f2f5ae39b5f40aa85fbc121a625d777a776eca1cb4c923426949c997d8828821a001e8480a1581c279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3fa144534e454b1a0005927082583901636d0d0118a8933ac167d4c448150bb325deaf7a4fdfb44adc7f2f5ae39b5f40aa85fbc121a625d777a776eca1cb4c923426949c997d88281b000000030c3528d7021a0002e061031a0bd811c40b5820810cc16197b6791d211bc55d36c6ea1c772456473dd7b7e54b1f1fcdfe96269ba200d901028182582062e8297eae4d6a606981e93afec220dda426b38d38c3f504efe7ea44288a61945840c1d333204185cc5477bdea9103a5a1c464882eea995054f90bfe363112f64935ab7ef9ae400a78bd6467e95d2842731f84e6c43a6c82ce0343d15690dd99b40d04d901029fd8799f5838636d0d0118a8933ac167d4c448150bb325deaf7a4fdfb44adc7f2f5ae39b5f40aa85fbc121a625d777a776eca1cb4c923426949c997d8828d87d9f1a13036624fffffff5f6"
+    static let indefiniteHash = "810cc16197b6791d211bc55d36c6ea1c772456473dd7b7e54b1f1fcdfe96269b"
+
     @Test("the fixtures really do have datums and no redeemers")
     func fixtureShape() throws {
-        for hex in [Self.firstTx, Self.secondTx] {
+        for hex in [Self.firstTx, Self.secondTx, Self.indefiniteTx] {
             let tx = try TransactionParser().parse(cborHex: hex)
             #expect(tx.transactionWitnessSet.plutusData != nil)
             #expect(tx.transactionWitnessSet.redeemers == nil)
@@ -61,7 +60,7 @@ struct ScriptDataHashNoRedeemersTests {
 
     @Test("the rule reports no mismatch for either transaction")
     func ruleAcceptsBoth() throws {
-        for hex in [Self.firstTx, Self.secondTx] {
+        for hex in [Self.firstTx, Self.secondTx, Self.indefiniteTx] {
             let tx = try TransactionParser().parse(cborHex: hex)
             // Resolve every spending input to a key address. Without this the
             // rule downgrades a mismatch to a warning, which would hide the
@@ -90,5 +89,16 @@ struct ScriptDataHashNoRedeemersTests {
             #expect(!issues.contains { $0.kind == .scriptDataHashMismatch })
             #expect(!issues.contains { $0.kind == .cannotCheckScriptDataHash })
         }
+    }
+
+    @Test("recomputed hash matches the on-chain hash (indefinite tag-258 datum set)")
+    func indefiniteDatumSet() throws {
+        let tx = try TransactionParser().parse(cborHex: Self.indefiniteTx)
+        let computed = try Utils.scriptDataHash(
+            witnessSet: tx.transactionWitnessSet,
+            protocolParams: try loadProtocolParams(),
+            transaction: tx
+        )
+        #expect(computed.payload.toHex == Self.indefiniteHash)
     }
 }
