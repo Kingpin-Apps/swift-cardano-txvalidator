@@ -1,3 +1,9 @@
+## 0.3.1 (2026-09-23)
+
+### Fix
+
+- accept a governance proposal that names no ancestor
+
 ## 0.3.0 (2026-09-23)
 
 ### Feat
