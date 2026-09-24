@@ -205,11 +205,11 @@ extension NecessaryData {
                 case .hardForkInitiationAction(let a):
                     if let id = a.id { addGovActionId(id) }
                 case .noConfidence(let a):
-                    addGovActionId(a.id)
+                    if let id = a.id { addGovActionId(id) }
                 case .updateCommittee(let a):
                     if let id = a.id { addGovActionId(id) }
                 case .newConstitution(let a):
-                    addGovActionId(a.id)
+                    if let id = a.id { addGovActionId(id) }
                 case .treasuryWithdrawalsAction, .infoAction:
                     break
                 }

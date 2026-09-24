@@ -124,10 +124,13 @@ private extension GovernanceProposalRule {
             checkTreasuryWithdrawals(a, fieldPath: fieldPath, context: context, issues: &issues)
 
         case .noConfidence(let a):
-            checkPrevGovActionId(
-                a.id, expectedType: .noConfidence,
-                fieldPath: fieldPath, context: context, issues: &issues
-            )
+            // The first action of a chain names no ancestor.
+            if let prevId = a.id {
+                checkPrevGovActionId(
+                    prevId, expectedType: .noConfidence,
+                    fieldPath: fieldPath, context: context, issues: &issues
+                )
+            }
 
         case .updateCommittee(let a):
             if let prevId = a.id {
@@ -139,10 +142,13 @@ private extension GovernanceProposalRule {
             checkUpdateCommittee(a, fieldPath: fieldPath, context: context, issues: &issues)
 
         case .newConstitution(let a):
-            checkPrevGovActionId(
-                a.id, expectedType: .newConstitution,
-                fieldPath: fieldPath, context: context, issues: &issues
-            )
+            // The first action of a chain names no ancestor.
+            if let prevId = a.id {
+                checkPrevGovActionId(
+                    prevId, expectedType: .newConstitution,
+                    fieldPath: fieldPath, context: context, issues: &issues
+                )
+            }
 
         case .infoAction:
             break
