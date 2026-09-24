@@ -78,6 +78,14 @@ public enum Utils {
                         set.elementsOrdered.map({ .plutusData($0) })
                     )
                 )
+        case .indefiniteNonEmptyOrderedSet(let list):
+            // `#6.258` around an indefinite-length array: keep the form so the
+            // datums re-encode to the bytes `script_data_hash` was built over.
+            datums = .indefiniteNonEmptyOrderedSet(
+                IndefiniteList(
+                    list.map({ .plutusData($0) })
+                )
+            )
         case nil:
             datums = nil
         }
