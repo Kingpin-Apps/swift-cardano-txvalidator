@@ -21,11 +21,15 @@ public enum Utils {
     /// scriptDataHash = Blake2b256(redeemers_cbor || datums_cbor || language_views_cbor)
     /// ```
     ///
-    /// - `redeemers_cbor`: canonical CBOR of the redeemers (map or list encoding)
+    /// - `redeemers_cbor`: canonical CBOR of the redeemers (map or list encoding);
+    ///   `0xA0` (the empty map) when the witness set has no redeemers field —
+    ///   this part is always present
     /// - `datums_cbor`: CBOR set (tag 258) of PlutusDatas from the witness set;
-    ///   `0xA0` (empty map) if no datums
+    ///   contributes *nothing* when there are no datums
     /// - `language_views_cbor`: cost models for only the Plutus versions actually used,
-    ///   `0xA0` (empty map) if no redeemers
+    ///   `0xA0` (empty map) if no redeemers — a Plutus script the transaction
+    ///   actually needs always comes with a redeemer, so no redeemers means no
+    ///   language to view
     /// - Parameters:
     ///   - witnessSet: The transaction's witness set.
     ///   - protocolParams: Protocol parameters supplying the cost models.
@@ -119,7 +123,12 @@ public enum Utils {
         }
         
         let datumBytes = try datums?.toCBORData() ?? Data()
-        let redeemerBytes = try redeemers?.toCBORData() ?? Data()
+        // The ledger always hashes a redeemers value. A witness set that omits
+        // the field decodes to the empty redeemer map, which still contributes
+        // its `0xA0` — contributing nothing instead shifts the whole preimage
+        // and makes every datum-carrying, redeemer-free transaction (one that
+        // only *sends* to a script address) look like a hash mismatch.
+        let redeemerBytes = try (redeemers ?? .map(RedeemerMap())).toCBORData()
         
         return ScriptDataHash(
             payload: try SwiftNaCl.Hash().blake2b(
