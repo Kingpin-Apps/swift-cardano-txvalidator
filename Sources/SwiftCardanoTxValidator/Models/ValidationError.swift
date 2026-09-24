@@ -58,6 +58,16 @@ public struct ValidationError: Sendable, Codable, Equatable {
         case withdrawalNotDelegatedToDRep
         case rewardAccountNotExisting
         // Balance — refund warnings (Batch 6)
+        /// warning: the transaction's script_data_hash could not be recomputed
+        /// faithfully, because an unresolved spending input leaves the set of
+        /// Plutus languages in play unknown. Distinct from
+        /// ``scriptDataHashMismatch``, which asserts the hash is wrong.
+        case cannotCheckScriptDataHash  // warning
+        /// warning: the unused-witness checks were skipped, because an
+        /// unresolved spending input leaves what the transaction requires
+        /// unknown. Distinct from ``extraneousScript`` and friends, which
+        /// assert that something is not needed.
+        case cannotCheckUnusedWitnesses  // warning
         case cannotCheckStakeDeregistrationRefund  // warning
         case cannotCheckDRepDeregistrationRefund  // warning
         // Registration errors (Batch 6)
@@ -150,6 +160,8 @@ public struct ValidationError: Sendable, Codable, Equatable {
             case .wrongWithdrawalAmount: return "Wrong Withdrawal Amount"
             case .withdrawalNotDelegatedToDRep: return "Withdrawal Not Delegated To DRep"
             case .rewardAccountNotExisting: return "Reward Account Not Existing"
+            case .cannotCheckScriptDataHash: return "Script Data Hash Not Verified"
+            case .cannotCheckUnusedWitnesses: return "Unused Witness Checks Skipped"
             case .cannotCheckStakeDeregistrationRefund:
                 return "Cannot Check Stake Deregistration Refund"
             case .cannotCheckDRepDeregistrationRefund:

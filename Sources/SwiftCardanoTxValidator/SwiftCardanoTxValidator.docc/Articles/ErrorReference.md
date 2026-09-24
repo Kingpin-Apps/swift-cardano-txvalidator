@@ -213,6 +213,14 @@ Phase-1 errors are produced by the built-in ``Phase1Validator`` rules and any cu
 - **Field path:** `transaction_body.script_data_hash`
 - **Cause:** The `script_data_hash` field does not match `Blake2b256(redeemers_cbor ‖ datums_cbor ‖ language_views_cbor)` as computed from the witness set and current cost models.
 - **Fix:** Regenerate the script data hash after any change to redeemers, datums, or cost models. Most transaction builders do this automatically.
+- **Note:** Only reported when every spending input resolved. See ``ValidationError/Kind/cannotCheckScriptDataHash`` for why.
+
+#### `cannotCheckScriptDataHash` *(warning)*
+
+- **Rule:** ``ScriptIntegrityRule``
+- **Field path:** `transaction_body.script_data_hash`
+- **Cause:** A spending input could not be resolved, so its script hash is unknown and a reference script satisfying it cannot be matched to it. The language views are then incomplete and the recomputed hash is meaningless — reporting a mismatch from it would accuse a correct transaction. The rule first retries counting every Plutus reference script the transaction carries, and only reports this if that still disagrees.
+- **Fix:** Resolve the inputs against a chain context that still has them. `cardano-cli` and Ogmios return only unspent UTxOs, so a transaction whose inputs are already spent needs Blockfrost or Koios. **The declared hash has not been shown to be wrong.**
 
 ---
 
@@ -282,8 +290,16 @@ Phase-1 errors are produced by the built-in ``Phase1Validator`` rules and any cu
 
 - **Rule:** ``WitnessRule``, ``Phase2Validator``
 - **Field path:** `transaction_witness_set.redeemers`
-- **Cause:** Redeemers are present but no Plutus scripts appear to be required by the resolved inputs or minting policies.
+- **Cause:** Redeemers are present but no Plutus scripts are required by the resolved inputs or minting policies.
 - **Fix:** Remove the redeemers if no scripts are being executed.
+- **Note:** Only reported when every spending input resolved.
+
+#### `cannotCheckUnusedWitnesses` *(warning)*
+
+- **Rule:** ``WitnessRule``
+- **Field path:** `transaction_witness_set`
+- **Cause:** One or more spending inputs could not be resolved, so what the transaction requires is not fully known. The `extraneousScript`, `extraneousDatum` and `extraneousRedeemer` checks all compare what a transaction carries against what it needs, and an unresolved input contributes nothing to the latter — so a script, datum or redeemer that only *that* input justifies would look spare. Those checks are withheld and summarised here instead. Raised only when one of them would otherwise have fired.
+- **Fix:** Resolve the inputs against a chain context that still has them. **Nothing has been shown to be unnecessary.**
 
 ---
 

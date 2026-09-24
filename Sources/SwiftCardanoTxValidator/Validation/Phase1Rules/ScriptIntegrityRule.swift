@@ -10,9 +10,17 @@ import SwiftCardanoCore
 ///   - Serialised cost model language views (only versions used by required scripts)
 ///
 /// The language views depend on `context.resolvedInputs`: a transaction that
-/// uses a reference script carries no script in its witness set, so without
-/// resolved inputs there is no way to tell which Plutus version it needs and
-/// the recomputed hash will not match.
+/// uses a reference script carries no script in its witness set, so the Plutus
+/// version it needs can only be read off the resolved UTxOs.
+///
+/// When a spending input cannot be resolved — which is the normal state of a
+/// transaction whose inputs have already been spent — its script hash is
+/// unknown, and a reference script that satisfies it cannot be matched to it.
+/// The recomputed hash is then meaningless, so this rule does not report a
+/// mismatch from it. It retries counting every Plutus reference script the
+/// transaction carries, and if that agrees with the declared hash the
+/// transaction passes; if it still disagrees the result is reported as a
+/// warning, because the evidence does not support calling the hash wrong.
 ///
 /// If neither redeemers nor datums are present, the `script_data_hash` field must
 /// also be absent.
@@ -74,7 +82,15 @@ public struct ScriptIntegrityRule: ValidationRule {
             let computedHashHex = computedHashData.payload.toHex
             let declaredHashHex = "\(declaredHash!)"
 
-            if computedHashHex != declaredHashHex {
+            if computedHashHex == declaredHashHex { return [] }
+
+            let unresolved = Utils.unresolvedSpendingInputs(
+                transaction: transaction,
+                resolvedInputs: context.resolvedInputs
+            )
+
+            // Everything the hash depends on was known, so a mismatch is real.
+            guard !unresolved.isEmpty else {
                 return [ValidationError(
                     kind: .scriptDataHashMismatch,
                     fieldPath: "transaction_body.script_data_hash",
@@ -84,6 +100,33 @@ public struct ScriptIntegrityRule: ValidationRule {
                         + "and cost model language views. Check that cost models match the protocol parameters."
                 )]
             }
+
+            // An unresolved spending input hides its script hash, so a reference
+            // script satisfying it was skipped. Try again counting them all.
+            let assumed = try? Utils.scriptDataHash(
+                witnessSet: witnesses,
+                protocolParams: protocolParams,
+                transaction: transaction,
+                resolvedInputs: context.resolvedInputs,
+                assumingUnresolvedInputsUseReferenceScripts: true
+            )
+            if assumed?.payload.toHex == declaredHashHex { return [] }
+
+            let names = unresolved
+                .map { "\($0.transactionId)#\($0.index)" }
+                .joined(separator: ", ")
+            return [ValidationError(
+                kind: .cannotCheckScriptDataHash,
+                fieldPath: "transaction_body.script_data_hash",
+                message: "script_data_hash could not be verified: \(unresolved.count) spending "
+                    + "input(s) could not be resolved (\(names)), so the Plutus versions this "
+                    + "transaction uses are unknown and the language views may be incomplete. "
+                    + "declared=\(declaredHashHex), computed=\(computedHashHex).",
+                hint: "Resolve the inputs against a chain context that still has them — a UTxO "
+                    + "that has already been spent is not returned by every backend. The declared "
+                    + "hash has not been shown to be wrong.",
+                isWarning: true
+            )]
         }
 
         return []

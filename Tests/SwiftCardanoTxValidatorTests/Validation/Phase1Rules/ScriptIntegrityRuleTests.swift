@@ -34,7 +34,21 @@ struct ScriptIntegrityRuleTests {
     ) throws -> [ValidationError] {
         let tx = try makeTx(scriptDataHash: scriptDataHash, witnessSet: witnessSet)
         let pp = try loadProtocolParams()
-        return try ScriptIntegrityRule().validate(transaction: tx, context: ValidationContext(), protocolParams: pp)
+        // Resolve the spending input to a key address: these cases are about the
+        // hash itself, so the rule must have the whole picture — otherwise it
+        // rightly refuses to call a hash wrong.
+        let context = ValidationContext(resolvedInputs: [
+            UTxO(
+                input: TransactionInput(
+                    transactionId: TransactionId(payload: Data(repeating: 0xAA, count: 32)),
+                    index: 0
+                ),
+                output: TransactionOutput(
+                    address: try makeAddress(), amount: Value(coin: 5_000_000)
+                )
+            )
+        ])
+        return try ScriptIntegrityRule().validate(transaction: tx, context: context, protocolParams: pp)
     }
 
     private func sampleRedeemer() -> Redeemer {
@@ -249,5 +263,119 @@ struct ScriptIntegrityRuleTests {
         )
 
         #expect(withReferenceScripts.payload != withoutReferenceScripts.payload)
+    }
+
+    // MARK: - Unresolvable spending inputs
+
+    /// The fixture with the spending input dropped from the resolved set, which
+    /// is what a chain context returns once that UTxO has been spent: backends
+    /// like cardano-cli and Ogmios only hand back unspent UTxOs.
+    private func makeSpentInputFixture() throws -> (
+        transaction: Transaction,
+        correctHash: ScriptDataHash,
+        contextMissingSpend: ValidationContext,
+        witnessSet: TransactionWitnessSet
+    ) {
+        let pp = try loadProtocolParams()
+        let (transaction, context, witnessSet) = try makeReferenceScriptFixture()
+
+        let computed = try Utils.scriptDataHash(
+            witnessSet: witnessSet, protocolParams: pp,
+            transaction: transaction, resolvedInputs: context.resolvedInputs
+        )
+        let correctHash = ScriptDataHash(payload: computed.payload)
+
+        var body = transaction.transactionBody
+        body.scriptDataHash = correctHash
+        let declared = Transaction(transactionBody: body, transactionWitnessSet: witnessSet)
+
+        // Only the reference input survives; the spent one is gone.
+        let missing = ValidationContext(
+            resolvedInputs: context.resolvedInputs.filter { $0.output.script != nil }
+        )
+        return (declared, correctHash, missing, witnessSet)
+    }
+
+    @Test("an unresolved spending input is reported as such")
+    func unresolvedSpendingInputsAreIdentified() throws {
+        let (transaction, _, context, _) = try makeSpentInputFixture()
+        let unresolved = Utils.unresolvedSpendingInputs(
+            transaction: transaction, resolvedInputs: context.resolvedInputs
+        )
+        #expect(unresolved.count == 1)
+        #expect(unresolved.first?.index == 0)
+    }
+
+    /// Without the spending input the reference script cannot be matched to
+    /// anything the transaction requires, so it is filtered out and the language
+    /// views come out empty — which is why the plain computation disagrees.
+    @Test("a spent spending input hides the reference script from the language views")
+    func spentInputEmptiesTheLanguageViews() throws {
+        let pp = try loadProtocolParams()
+        let (transaction, _, context, witnessSet) = try makeSpentInputFixture()
+
+        let views = try Utils.languageViewsCostModels(
+            witnessSet: witnessSet, protocolParams: pp,
+            transaction: transaction, resolvedInputs: context.resolvedInputs
+        )
+        #expect(views.isEmpty)
+
+        let assumed = try Utils.languageViewsCostModels(
+            witnessSet: witnessSet, protocolParams: pp,
+            transaction: transaction, resolvedInputs: context.resolvedInputs,
+            assumingUnresolvedInputsUseReferenceScripts: true
+        )
+        #expect(assumed[2] != nil)
+    }
+
+    /// The bug this guards: a correct transaction whose inputs happen to be
+    /// spent was reported as having a wrong script_data_hash, which invites
+    /// someone to "fix" a hash that was right all along.
+    @Test("a correct hash still passes when the spending input cannot be resolved")
+    func correctHashPassesDespiteSpentInput() throws {
+        let pp = try loadProtocolParams()
+        let (transaction, _, context, _) = try makeSpentInputFixture()
+
+        let issues = try ScriptIntegrityRule().validate(
+            transaction: transaction, context: context, protocolParams: pp
+        )
+        #expect(issues.isEmpty)
+    }
+
+    /// And when it genuinely does not match, the rule still must not claim the
+    /// hash is wrong — it could not compute the right one.
+    @Test("an unverifiable hash is a warning, not an error")
+    func unverifiableHashIsAWarning() throws {
+        let pp = try loadProtocolParams()
+        let (transaction, _, context, witnessSet) = try makeSpentInputFixture()
+
+        var body = transaction.transactionBody
+        body.scriptDataHash = ScriptDataHash(payload: Data(repeating: 0x5A, count: 32))
+        let wrong = Transaction(transactionBody: body, transactionWitnessSet: witnessSet)
+
+        let issues = try ScriptIntegrityRule().validate(
+            transaction: wrong, context: context, protocolParams: pp
+        )
+        #expect(!issues.contains { $0.kind == .scriptDataHashMismatch })
+        let issue = try #require(issues.first { $0.kind == .cannotCheckScriptDataHash })
+        #expect(issue.isWarning)
+        #expect(issue.message.contains("could not be verified"))
+    }
+
+    /// With every input resolved there is no excuse, and a wrong hash is an error.
+    @Test("a wrong hash is still an error when every input resolves")
+    func wrongHashIsAnErrorWhenFullyResolved() throws {
+        let pp = try loadProtocolParams()
+        let (transaction, context, witnessSet) = try makeReferenceScriptFixture()
+
+        var body = transaction.transactionBody
+        body.scriptDataHash = ScriptDataHash(payload: Data(repeating: 0x5A, count: 32))
+        let wrong = Transaction(transactionBody: body, transactionWitnessSet: witnessSet)
+
+        let issues = try ScriptIntegrityRule().validate(
+            transaction: wrong, context: context, protocolParams: pp
+        )
+        let issue = try #require(issues.first { $0.kind == .scriptDataHashMismatch })
+        #expect(!issue.isWarning)
     }
 }

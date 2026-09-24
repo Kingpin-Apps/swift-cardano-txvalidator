@@ -19,6 +19,12 @@ import SwiftNaCl
 ///   present at all, emit a `missingRedeemer` error
 /// - Extraneous redeemer pre-check (warning) — redeemers present but no Plutus scripts
 ///   are referenced
+///
+/// The three "extraneous" checks compare what the transaction carries against what
+/// it requires, and what it requires is read off the resolved inputs. When a
+/// spending input cannot be resolved — the normal state of a transaction whose
+/// inputs are already spent — those comparisons are withheld and reported as not
+/// performed, rather than accusing the transaction of carrying something spare.
 public struct WitnessRule: ValidationRule {
     public let name = "witness"
 
@@ -33,6 +39,17 @@ public struct WitnessRule: ValidationRule {
         let body = transaction.transactionBody
         let witnesses = transaction.transactionWitnessSet
         let era = context.era ?? .conway
+
+        // Every "this is not needed" conclusion below rests on knowing what the
+        // transaction *does* need, and that is read off the resolved inputs. An
+        // input we could not resolve contributes nothing to the required set, so
+        // a script, datum or redeemer it alone justifies looks unused. Those
+        // conclusions are withheld rather than reported when that is the case —
+        // a validator must not call something extraneous on evidence it lacks.
+        let unresolvedSpendingInputs = Utils.unresolvedSpendingInputs(
+            transaction: transaction, resolvedInputs: context.resolvedInputs
+        )
+        let requirementsAreKnown = unresolvedSpendingInputs.isEmpty
 
         // Build a map of resolved UTxOs keyed by "txId#index" for fast lookups.
         let resolvedMap: [String: TransactionOutput] = Dictionary(
@@ -142,6 +159,8 @@ public struct WitnessRule: ValidationRule {
             .union(referenceScriptHashes)
 
         var issues: [ValidationError] = []
+        /// Findings that only hold if the required-script set is complete.
+        var unusedFindings: [ValidationError] = []
 
         // -----------------------------------------------------------------------
         // MARK: 3. Missing script witnesses
@@ -168,7 +187,7 @@ public struct WitnessRule: ValidationRule {
             .union(Set(plutusV3WitnessByHash.keys))
 
         for unusedHash in allWitnessHashes.subtracting(requiredScriptHashes.keys) {
-            issues.append(ValidationError(
+            unusedFindings.append(ValidationError(
                 kind: .extraneousScript,
                 fieldPath: "transaction_witness_set.scripts",
                 message: "Script \(unusedHash) is present in the witness set but not "
@@ -322,7 +341,7 @@ public struct WitnessRule: ValidationRule {
             ) else { continue }
             let hashHex = hashBytes.toHex
             if !referencedDatumHashes.contains(hashHex) {
-                issues.append(ValidationError(
+                unusedFindings.append(ValidationError(
                     kind: .extraneousDatum,
                     fieldPath: "transaction_witness_set.plutusData",
                     message: "Datum with hash \(hashHex) is present in the witness set but "
@@ -358,13 +377,40 @@ public struct WitnessRule: ValidationRule {
         // MARK: 9. Extraneous redeemer pre-check (warning)
         // -----------------------------------------------------------------------
         if witnesses.redeemers != nil && !hasPlutusRequired {
-            issues.append(ValidationError(
+            unusedFindings.append(ValidationError(
                 kind: .extraneousRedeemer,
                 fieldPath: "transaction_witness_set.redeemers",
                 message: "Redeemers are present in the witness set but no Plutus scripts "
-                    + "appear to be required by the resolved inputs or minting policies.",
-                hint: "Remove the redeemers if no Plutus scripts are being executed, "
-                    + "or ensure the script-locked inputs are included in the resolved UTxO set.",
+                    + "are required by the resolved inputs or minting policies.",
+                hint: "Remove the redeemers if no Plutus scripts are being executed.",
+                isWarning: true
+            ))
+        }
+
+        // -----------------------------------------------------------------------
+        // MARK: 10. Report the "unused" findings only if they can be trusted
+        // -----------------------------------------------------------------------
+        if requirementsAreKnown {
+            issues.append(contentsOf: unusedFindings)
+        } else if !unusedFindings.isEmpty {
+            // Each of these would have accused the transaction of carrying
+            // something it does not need, on the strength of inputs we never saw.
+            // One honest note replaces them.
+            let names = unresolvedSpendingInputs
+                .map { "\($0.transactionId)#\($0.index)" }
+                .joined(separator: ", ")
+            let kinds = Set(unusedFindings.map { $0.kind.description })
+                .sorted()
+                .joined(separator: ", ")
+            issues.append(ValidationError(
+                kind: .cannotCheckUnusedWitnesses,
+                fieldPath: "transaction_witness_set",
+                message: "\(unusedFindings.count) unused-witness check(s) were not performed "
+                    + "(\(kinds)): \(unresolvedSpendingInputs.count) spending input(s) could not "
+                    + "be resolved (\(names)), so what this transaction requires is not fully "
+                    + "known. Nothing here has been shown to be unnecessary.",
+                hint: "Resolve the inputs against a chain context that still has them — a UTxO "
+                    + "that has already been spent is not returned by every backend.",
                 isWarning: true
             ))
         }

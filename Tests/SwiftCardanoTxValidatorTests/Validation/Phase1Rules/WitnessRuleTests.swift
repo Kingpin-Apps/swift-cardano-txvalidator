@@ -128,11 +128,122 @@ struct WitnessRuleTests {
         let witnessSet = TransactionWitnessSet(redeemers: .list([redeemer]))
         let tx = Transaction(transactionBody: body, transactionWitnessSet: witnessSet)
 
-        let ctx = ValidationContext()   // no resolved inputs
+        // The input must be resolved, and to a key address: the claim is that
+        // nothing needs a redeemer, and that can only be known once every input
+        // has been seen.
+        let ctx = ValidationContext(resolvedInputs: [UTxO(input: input, output: output)])
         let issues = try rule.validate(transaction: tx, context: ctx, protocolParams: pp)
 
         let warning = issues.filter { $0.kind == .extraneousRedeemer && $0.isWarning }
         #expect(!warning.isEmpty, "Expected extraneousRedeemer warning")
+    }
+
+    /// The same transaction with its input unresolved. Nothing is known about
+    /// what it requires, so calling the redeemer extraneous would be a guess —
+    /// this is the false positive that flagged a correct RealFi cancel
+    /// transaction whose inputs had already been spent.
+    @Test("an unresolved input turns the extraneous-redeemer claim into a skipped check")
+    func extraneousRedeemerWithheldWhenInputUnresolved() throws {
+        let pp = try loadProtocolParams()
+        let rule = WitnessRule()
+
+        let txId = TransactionId(payload: Data(repeating: 0xCC, count: 32))
+        let input = TransactionInput(transactionId: txId, index: 0)
+        let addr = try Address(
+            paymentPart: .verificationKeyHash(
+                VerificationKeyHash(payload: Data(repeating: 0x01, count: 28))
+            ),
+            network: .testnet
+        )
+        let output = TransactionOutput(address: addr, amount: Value(coin: 2_000_000))
+        let body = TransactionBody(inputs: .list([input]), outputs: [output], fee: 200_000)
+        let redeemer = Redeemer(
+            tag: .spend, index: 0,
+            data: PlutusData.bigInt(.int(0)),
+            exUnits: ExecutionUnits(mem: 1_000, steps: 1_000_000)
+        )
+        let tx = Transaction(
+            transactionBody: body,
+            transactionWitnessSet: TransactionWitnessSet(redeemers: .list([redeemer]))
+        )
+
+        let issues = try rule.validate(
+            transaction: tx, context: ValidationContext(), protocolParams: pp
+        )
+
+        #expect(!issues.contains { $0.kind == .extraneousRedeemer })
+        let skipped = try #require(issues.first { $0.kind == .cannotCheckUnusedWitnesses })
+        #expect(skipped.isWarning)
+        #expect(skipped.message.contains("\(txId)#0"))
+    }
+
+    /// A script in the witness set that nothing needs is only spare if we know
+    /// what the transaction needs.
+    @Test("an unused script is not reported while an input is unresolved")
+    func extraneousScriptWithheldWhenInputUnresolved() throws {
+        let pp = try loadProtocolParams()
+        let rule = WitnessRule()
+
+        let script = PlutusV3Script(data: Data([0x01, 0x02, 0x03]))
+        let addr = try Address(
+            paymentPart: .verificationKeyHash(
+                VerificationKeyHash(payload: Data(repeating: 0x01, count: 28))
+            ),
+            network: .testnet
+        )
+        let input = TransactionInput(
+            transactionId: TransactionId(payload: Data(repeating: 0xDD, count: 32)), index: 0
+        )
+        let output = TransactionOutput(address: addr, amount: Value(coin: 2_000_000))
+        let body = TransactionBody(inputs: .list([input]), outputs: [output], fee: 200_000)
+        let tx = Transaction(
+            transactionBody: body,
+            transactionWitnessSet: TransactionWitnessSet(plutusV3Script: .list([script]))
+        )
+
+        // Unresolved: withheld.
+        let withheld = try rule.validate(
+            transaction: tx, context: ValidationContext(), protocolParams: pp
+        )
+        #expect(!withheld.contains { $0.kind == .extraneousScript })
+        #expect(withheld.contains { $0.kind == .cannotCheckUnusedWitnesses })
+
+        // Resolved to a key address: now the script really is spare.
+        let resolved = try rule.validate(
+            transaction: tx,
+            context: ValidationContext(resolvedInputs: [UTxO(input: input, output: output)]),
+            protocolParams: pp
+        )
+        #expect(resolved.contains { $0.kind == .extraneousScript && $0.isWarning })
+        #expect(!resolved.contains { $0.kind == .cannotCheckUnusedWitnesses })
+    }
+
+    /// And when there was nothing to say, the skipped-check note stays quiet.
+    @Test("no skipped-check note when there was nothing to withhold")
+    func noNoteWhenNothingWasWithheld() throws {
+        let pp = try loadProtocolParams()
+        let addr = try Address(
+            paymentPart: .verificationKeyHash(
+                VerificationKeyHash(payload: Data(repeating: 0x01, count: 28))
+            ),
+            network: .testnet
+        )
+        let input = TransactionInput(
+            transactionId: TransactionId(payload: Data(repeating: 0xEE, count: 32)), index: 0
+        )
+        let body = TransactionBody(
+            inputs: .list([input]),
+            outputs: [TransactionOutput(address: addr, amount: Value(coin: 2_000_000))],
+            fee: 200_000
+        )
+        let tx = Transaction(
+            transactionBody: body, transactionWitnessSet: TransactionWitnessSet()
+        )
+
+        let issues = try WitnessRule().validate(
+            transaction: tx, context: ValidationContext(), protocolParams: pp
+        )
+        #expect(!issues.contains { $0.kind == .cannotCheckUnusedWitnesses })
     }
 
     // MARK: - Missing datum pre-check

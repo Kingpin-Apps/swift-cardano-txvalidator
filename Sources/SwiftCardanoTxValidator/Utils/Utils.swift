@@ -35,18 +35,26 @@ public enum Utils {
     ///   - resolvedInputs: Resolved UTxOs for the transaction's spending,
     ///     collateral, and reference inputs — the only place a reference
     ///     script can be found.
+    ///   - assumingUnresolvedInputsUseReferenceScripts: When a spending input
+    ///     could not be resolved, its script hash is unknown, so a reference
+    ///     script cannot be matched against it. Passing `true` counts every
+    ///     Plutus reference script the transaction carries, which is the right
+    ///     guess for a transaction whose inputs are already spent.
     public static func scriptDataHash(
         witnessSet: TransactionWitnessSet,
         protocolParams: ProtocolParameters,
         transaction: Transaction? = nil,
-        resolvedInputs: [UTxO] = []
+        resolvedInputs: [UTxO] = [],
+        assumingUnresolvedInputsUseReferenceScripts: Bool = false
     ) throws -> ScriptDataHash {
 
         let costModels = try languageViewsCostModels(
             witnessSet: witnessSet,
             protocolParams: protocolParams,
             transaction: transaction,
-            resolvedInputs: resolvedInputs
+            resolvedInputs: resolvedInputs,
+            assumingUnresolvedInputsUseReferenceScripts:
+                assumingUnresolvedInputsUseReferenceScripts
         )
 
         let datums: ListOrNonEmptyOrderedSet<Datum>?
@@ -142,7 +150,8 @@ public enum Utils {
         witnessSet: TransactionWitnessSet,
         protocolParams: ProtocolParameters,
         transaction: Transaction? = nil,
-        resolvedInputs: [UTxO] = []
+        resolvedInputs: [UTxO] = [],
+        assumingUnresolvedInputsUseReferenceScripts: Bool = false
     ) throws -> [Int: [Int64]] {
 
         // Plutus versions carried directly in the witness set.
@@ -164,11 +173,22 @@ public enum Utils {
                 transaction: transaction,
                 resolvedInputs: resolvedInputs
             )
+            // An input we could not resolve has an unknown address, so its
+            // script hash never reaches `required` and a reference script that
+            // satisfies it would be filtered out here — leaving the language
+            // views empty and the recomputed hash wrong. That is why the caller
+            // can ask for those reference scripts to be counted anyway.
+            let inputsAreComplete = unresolvedSpendingInputs(
+                transaction: transaction, resolvedInputs: resolvedInputs
+            ).isEmpty
+            let countEveryReferenceScript =
+                assumingUnresolvedInputsUseReferenceScripts && !inputsAreComplete
+
             for utxo in resolvedInputs {
                 guard let script = utxo.output.script,
                       let version = plutusVersion(of: script),
                       let hash = try? scriptHash(script: script),
-                      required.contains(hash.payload.toHex)
+                      countEveryReferenceScript || required.contains(hash.payload.toHex)
                 else { continue }
                 versions.insert(version)
             }
@@ -182,6 +202,25 @@ public enum Utils {
         }
 
         return costModels
+    }
+
+    /// Spending inputs with no resolved UTxO behind them.
+    ///
+    /// These are the inputs whose addresses — and so whose script hashes — are
+    /// unknown, which is what makes the language views uncertain. Collateral and
+    /// reference inputs are not included: neither contributes a script hash that
+    /// the transaction is required to satisfy.
+    public static func unresolvedSpendingInputs(
+        transaction: Transaction?,
+        resolvedInputs: [UTxO]
+    ) -> [TransactionInput] {
+        guard let transaction else { return [] }
+        let resolved = Set(
+            resolvedInputs.map { "\($0.input.transactionId)#\($0.input.index)" }
+        )
+        return transaction.transactionBody.inputs.asArray.filter {
+            !resolved.contains("\($0.transactionId)#\($0.index)")
+        }
     }
 
     /// The Plutus language version of a script, or `nil` for native scripts.
