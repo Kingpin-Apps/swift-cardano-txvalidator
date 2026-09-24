@@ -1,3 +1,9 @@
+## 0.3.3 (2026-09-24)
+
+### Fix
+
+- stop reporting script data hash and unused witnesses from unresolved inputs
+
 ## 0.3.2 (2026-09-24)
 
 ### Fix
