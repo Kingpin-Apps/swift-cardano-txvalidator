@@ -153,7 +153,9 @@ let report = try await validator.validatePhase1(
 
 ## Step 3 — Phase-2 Validation (Plutus Scripts)
 
-To run Plutus scripts, provide a `ChainContext` (from `SwiftCardanoChain`). The chain context is used to fetch protocol parameters and evaluate execution units via the CEK machine:
+To run Plutus scripts, provide a `ChainContext` (from `SwiftCardanoChain`). The chain context is used to fetch protocol parameters and evaluate execution units via the CEK machine.
+
+`resolvedInputs` must cover every input the transaction references, **including reference inputs**. A transaction spending through a reference script carries no script in its witness set at all, so without them the script cannot be found, and the `script_data_hash` cannot be recomputed either — its cost-model language views depend on which Plutus version the referenced script is.
 
 ```swift
 import SwiftCardanoChain

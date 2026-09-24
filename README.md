@@ -148,11 +148,11 @@ let json = try report.toJSON()
 | Rule | What it checks |
 |---|---|
 | `AuxiliaryDataRule` | `auxiliaryDataHash` presence, absence, and Blake2b-256 integrity |
-| `TransactionLimitsRule` | Non-empty input set, max tx size, total execution units, reference/spending input overlap, canonical input ordering |
+| `TransactionLimitsRule` | Non-empty input set, max tx size, total execution units, reference/spending input overlap |
 | `FeeRule` | `fee ≥ txFeeFixed + txFeePerByte × tx_size` (warns if >10% over minimum) |
 | `BalanceRule` | `Σ(inputs) + Σ(withdrawals) + Σ(refunds) = Σ(outputs) + fee + Σ(deposits) + donation` |
 | `CollateralRule` | Collateral presence, count ≤ max, ADA ≥ fee × collateralPercentage, no script-locked collateral |
-| `ScriptIntegrityRule` | `scriptDataHash = Blake2b256(redeemers ‖ datums ‖ language_views)` |
+| `ScriptIntegrityRule` | `scriptDataHash = Blake2b256(redeemers ‖ datums ‖ language_views)` — needs `resolvedInputs` to see reference scripts |
 | `ValidityIntervalRule` | `validityStart ≤ currentSlot < ttl` |
 | `RequiredSignersRule` | Every required signer key hash has a matching vkey witness |
 | `WitnessRule` | Script witness completeness, native script (multisig/timelock) evaluation, datum availability, extraneous witness detection |
@@ -261,7 +261,13 @@ Every `ValidationError` carries:
 | `executionUnitsTooLarge` | Total declared execution units exceed `maxTxExecutionUnits` |
 | `referenceInputOverlapsWithInput` | A UTxO appears in both the spending and reference input sets |
 | `badInput` | A spending input is not in the resolved UTxO set |
-| `inputsNotSorted` | Warning — spending inputs not in canonical lexicographic order |
+| `inputsNotSorted` | No longer emitted |
+
+> `inputsNotSorted` is retained for source compatibility but no rule raises it.
+> SwiftCardanoCore's tagged-set types hand their elements back in canonical order,
+> so the order a transaction was actually encoded with is not available to a rule.
+> The check could only ever confirm the canonical order against itself, or fire
+> spuriously — string ordering puts `#10` before `#2`, CBOR ordering does not.
 
 **Fee**
 
@@ -385,9 +391,15 @@ Every `ValidationError` carries:
 
 | Kind | Description |
 |---|---|
-| `plutusScriptFailed` | A Plutus script evaluated to `Error` |
+| `plutusScriptFailed` | A Plutus script evaluated to `Error`, or could not be prepared to run |
 | `executionBudgetExceeded` | Script exceeded its declared execution units budget |
-| `excessiveExecutionUnits` | Warning — declared execution units far exceed the computed cost |
+| `excessiveExecutionUnits` | Warning — declared execution units far exceed the computed cost. Only raised when the budget was measured against a real cost model |
+
+Each `RedeemerEvalResult` reports `budgetMeasured`. It is `false` when evaluation ran
+on a placeholder cost model, in which case `remainingBudget` carries no meaning and
+must not be shown as execution units or compared against the transaction's declared
+units. A `plutusScriptFailed` whose message says the script *could not be prepared for
+evaluation* is a limitation of the evaluator, not a fault in the script.
 
 **Parse**
 
