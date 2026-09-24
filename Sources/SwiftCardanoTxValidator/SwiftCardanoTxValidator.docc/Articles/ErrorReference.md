@@ -76,12 +76,15 @@ Phase-1 errors are produced by the built-in ``Phase1Validator`` rules and any cu
 - **Cause:** A spending input is not present in `context.resolvedInputs` — it either does not exist or has already been spent.
 - **Fix:** Remove the stale input or provide the correct resolved UTxO.
 
-#### `inputsNotSorted` *(warning)*
+#### `inputsNotSorted` *(warning, no longer emitted)*
 
 - **Rule:** ``TransactionLimitsRule``
 - **Field path:** `transaction_body.inputs`
-- **Cause:** The spending inputs are not in canonical lexicographic order (sort by transaction ID, then by output index). Most nodes accept this, but some tooling enforces the canonical order.
-- **Fix:** Sort spending inputs lexicographically.
+- **Cause:** The spending inputs are not in canonical lexicographic order (sort by transaction ID, then by output index).
+- **Status:** No rule emits this any more. SwiftCardanoCore's tagged-set types
+  return their elements in canonical order, so the order a transaction was
+  actually encoded with is not available to a validation rule and the check
+  could only produce false positives. The case is kept for source compatibility.
 
 ---
 

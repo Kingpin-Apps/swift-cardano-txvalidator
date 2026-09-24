@@ -52,19 +52,15 @@ struct TransactionLimitsRuleTests {
 
     // MARK: - Input ordering
 
-    @Test("inputsNotSorted warning when inputs are out of canonical order")
-    func inputsNotSorted() throws {
-        // 0xBB sorts after 0xAA, so listing 0xBB first is non-canonical.
-        let issues = try run(inputs: [makeInput(0xBB), makeInput(0xAA)])
-        let unsorted = issues.filter { $0.kind == .inputsNotSorted }
-        #expect(unsorted.count == 1)
-        #expect(unsorted.first?.isWarning == true)
-    }
-
-    @Test("no inputsNotSorted warning when inputs are in canonical order")
-    func inputsSorted() throws {
-        let issues = try run(inputs: [makeInput(0xAA), makeInput(0xBB)])
-        #expect(!issues.contains { $0.kind == .inputsNotSorted })
+    @Test("input order is never reported — the decoded model has no original order")
+    func inputOrderIsNotReported() throws {
+        // SwiftCardanoCore hands tagged-set elements back in canonical order,
+        // so a rule cannot see how the transaction was actually encoded.
+        // Reporting on it produced false positives, so it is no longer checked.
+        let outOfOrder = try run(inputs: [makeInput(0xBB), makeInput(0xAA)])
+        let inOrder    = try run(inputs: [makeInput(0xAA), makeInput(0xBB)])
+        #expect(!outOfOrder.contains { $0.kind == .inputsNotSorted })
+        #expect(!inOrder.contains { $0.kind == .inputsNotSorted })
     }
 
     // MARK: - Reference / spending overlap

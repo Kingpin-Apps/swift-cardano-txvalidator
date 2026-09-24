@@ -8,7 +8,6 @@ import SwiftCardanoCore
 /// - Serialised CBOR size must not exceed `maxTxSize`
 /// - Total declared execution units must not exceed `maxTxExecutionUnits`
 /// - A reference input must not also appear in the spending input set
-/// - Spending inputs must be in canonical lexicographic order (warning)
 public struct TransactionLimitsRule: ValidationRule {
     public let name = "transactionLimits"
 
@@ -119,17 +118,14 @@ public struct TransactionLimitsRule: ValidationRule {
             }
         }
 
-        // 6. Spending inputs must be in canonical lexicographic order (warning)
-        let inputKeys = body.inputs.asArray.map { "\($0.transactionId)#\($0.index)" }
-        if inputKeys != inputKeys.sorted() {
-            issues.append(ValidationError(
-                kind: .inputsNotSorted,
-                fieldPath: "transaction_body.inputs",
-                message: "Spending inputs are not in canonical lexicographic order (txId then index).",
-                hint: "Sort the spending inputs lexicographically by transaction ID, then by output index.",
-                isWarning: true
-            ))
-        }
+        // 6. Spending input ordering is deliberately not checked here.
+        //    SwiftCardanoCore's tagged-set types keep their elements in a
+        //    Swift `Set` and hand them back in canonical order, so the order
+        //    the transaction was actually encoded with is gone by the time a
+        //    rule sees it. Comparing the canonical order against itself would
+        //    either never fire or fire spuriously (string ordering puts "#10"
+        //    before "#2", CBOR ordering does not). Checking this properly
+        //    needs the raw transaction bytes, which rules are not given.
 
         // 7. Reference scripts total size must not exceed maxReferenceScriptsSize (Conway+)
         //    Sum over all resolved UTxOs that carry an inline script.
