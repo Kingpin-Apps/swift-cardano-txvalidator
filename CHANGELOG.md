@@ -1,3 +1,9 @@
+## 0.3.2 (2026-09-24)
+
+### Fix
+
+- give Phase-2 the chain's slot timeline so scripts see real POSIX deadlines
+
 ## 0.3.1 (2026-09-23)
 
 ### Fix
