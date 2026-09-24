@@ -9,6 +9,11 @@ import SwiftCardanoCore
 ///   - Serialised plutus datums set (CBOR tag 258)
 ///   - Serialised cost model language views (only versions used by required scripts)
 ///
+/// The language views depend on `context.resolvedInputs`: a transaction that
+/// uses a reference script carries no script in its witness set, so without
+/// resolved inputs there is no way to tell which Plutus version it needs and
+/// the recomputed hash will not match.
+///
 /// If neither redeemers nor datums are present, the `script_data_hash` field must
 /// also be absent.
 public struct ScriptIntegrityRule: ValidationRule {
@@ -61,7 +66,9 @@ public struct ScriptIntegrityRule: ValidationRule {
             
             let computedHashData = try Utils.scriptDataHash(
                 witnessSet: witnesses,
-                protocolParams: protocolParams
+                protocolParams: protocolParams,
+                transaction: transaction,
+                resolvedInputs: context.resolvedInputs
             )
             
             let computedHashHex = computedHashData.payload.toHex

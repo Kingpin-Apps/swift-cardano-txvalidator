@@ -26,14 +26,27 @@ public enum Utils {
     ///   `0xA0` (empty map) if no datums
     /// - `language_views_cbor`: cost models for only the Plutus versions actually used,
     ///   `0xA0` (empty map) if no redeemers
+    /// - Parameters:
+    ///   - witnessSet: The transaction's witness set.
+    ///   - protocolParams: Protocol parameters supplying the cost models.
+    ///   - transaction: The whole transaction. Required to work out which
+    ///     reference scripts the transaction actually needs; without it only
+    ///     witness-set scripts contribute to the language views.
+    ///   - resolvedInputs: Resolved UTxOs for the transaction's spending,
+    ///     collateral, and reference inputs — the only place a reference
+    ///     script can be found.
     public static func scriptDataHash(
         witnessSet: TransactionWitnessSet,
-        protocolParams: ProtocolParameters
+        protocolParams: ProtocolParameters,
+        transaction: Transaction? = nil,
+        resolvedInputs: [UTxO] = []
     ) throws -> ScriptDataHash {
 
         let costModels = try languageViewsCostModels(
             witnessSet: witnessSet,
-            protocolParams: protocolParams
+            protocolParams: protocolParams,
+            transaction: transaction,
+            resolvedInputs: resolvedInputs
         )
 
         let datums: ListOrNonEmptyOrderedSet<Datum>?
@@ -127,27 +140,140 @@ public enum Utils {
     /// Reference: Cardano Ledger Spec § "language views encoding",
     public static func languageViewsCostModels(
         witnessSet: TransactionWitnessSet,
-        protocolParams: ProtocolParameters
+        protocolParams: ProtocolParameters,
+        transaction: Transaction? = nil,
+        resolvedInputs: [UTxO] = []
     ) throws -> [Int: [Int64]] {
-        var version = -1
-        let usesV1 = witnessSet.plutusV1Script != nil
-        let usesV2 = witnessSet.plutusV2Script != nil
-        let usesV3 = witnessSet.plutusV3Script != nil
+
+        // Plutus versions carried directly in the witness set.
+        var versions = Set<Int>()
+        if witnessSet.plutusV1Script != nil { versions.insert(1) }
+        if witnessSet.plutusV2Script != nil { versions.insert(2) }
+        if witnessSet.plutusV3Script != nil { versions.insert(3) }
+
+        // Plutus versions supplied by reference scripts. A transaction that
+        // spends from a script address using a reference script carries no
+        // script in its witness set at all, so skipping these leaves the
+        // language views empty and the recomputed hash wrong.
+        //
+        // Only scripts the transaction actually needs count — a reference
+        // input included solely to read its datum must not drag its script's
+        // language into the hash.
+        if !resolvedInputs.isEmpty, let transaction {
+            let required = requiredScriptHashes(
+                transaction: transaction,
+                resolvedInputs: resolvedInputs
+            )
+            for utxo in resolvedInputs {
+                guard let script = utxo.output.script,
+                      let version = plutusVersion(of: script),
+                      let hash = try? scriptHash(script: script),
+                      required.contains(hash.payload.toHex)
+                else { continue }
+                versions.insert(version)
+            }
+        }
 
         var costModels: [Int: [Int64]] = [:]
-        if usesV1 {
-            version = 1
-            costModels[version - 1] = protocolParams.costModels.getVersion(version)
-        }
-        if usesV2 {
-            version = 2
-            costModels[version - 1] = protocolParams.costModels.getVersion(version)
-        }
-        if usesV3 {
-            version = 3
+        for version in versions.sorted() {
+            // A nil cost model removes the key, matching the ledger's
+            // behaviour of only viewing languages it knows about.
             costModels[version - 1] = protocolParams.costModels.getVersion(version)
         }
 
         return costModels
+    }
+
+    /// The Plutus language version of a script, or `nil` for native scripts.
+    public static func plutusVersion(of script: ScriptType) -> Int? {
+        switch script {
+        case .plutusV1Script: return 1
+        case .plutusV2Script: return 2
+        case .plutusV3Script: return 3
+        case .nativeScript:   return nil
+        }
+    }
+
+    /// Hex-encoded hashes of every script the transaction needs in order to
+    /// validate: script-locked spending inputs, minting policies, script
+    /// stake credentials in withdrawals and certificates, and script voters.
+    ///
+    /// The script itself may live in the witness set or in a reference input.
+    public static func requiredScriptHashes(
+        transaction: Transaction,
+        resolvedInputs: [UTxO] = []
+    ) -> Set<String> {
+        let body = transaction.transactionBody
+        var hashes = Set<String>()
+
+        // Script-locked spending inputs.
+        let resolvedMap: [String: TransactionOutput] = Dictionary(
+            resolvedInputs.map { ("\($0.input.transactionId)#\($0.input.index)", $0.output) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        for input in body.inputs.asArray {
+            let key = "\(input.transactionId)#\(input.index)"
+            guard let output = resolvedMap[key],
+                  case .scriptHash(let sh)? = output.address.paymentPart
+            else { continue }
+            hashes.insert(sh.payload.toHex)
+        }
+
+        // Minting policies are script hashes by definition.
+        if let mint = body.mint {
+            for policyId in mint.data.keys {
+                hashes.insert(policyId.payload.toHex)
+            }
+        }
+
+        // Withdrawals from script-controlled reward accounts. A reward address
+        // is a 1-byte header followed by the credential; the header's low bit
+        // of the type nibble is set when that credential is a script.
+        if let withdrawals = body.withdrawals {
+            for rewardAccount in withdrawals.data.keys {
+                guard let header = rewardAccount.first, (header & 0x10) != 0 else { continue }
+                hashes.insert(rewardAccount.dropFirst().toHex)
+            }
+        }
+
+        // Script stake credentials in certificates.
+        if let certificates = body.certificates {
+            for cert in certificates.asList {
+                guard let credential = certificateStakeCredential(cert) else { continue }
+                if case .scriptHash(let sh) = credential.credential {
+                    hashes.insert(sh.payload.toHex)
+                }
+            }
+        }
+
+        // Script voters (constitutional committee hot script / DRep script).
+        if let votingProcedures = body.votingProcedures {
+            for voter in votingProcedures.voters {
+                switch voter.credential {
+                case .constitutionalCommitteeHotScriptHash(let sh), .drepScriptHash(let sh):
+                    hashes.insert(sh.payload.toHex)
+                default:
+                    break
+                }
+            }
+        }
+
+        return hashes
+    }
+
+    private static func certificateStakeCredential(_ cert: Certificate) -> StakeCredential? {
+        switch cert {
+        case .stakeRegistration(let c):           return c.stakeCredential
+        case .stakeDeregistration(let c):         return c.stakeCredential
+        case .stakeDelegation(let c):             return c.stakeCredential
+        case .register(let c):                    return c.stakeCredential
+        case .unregister(let c):                  return c.stakeCredential
+        case .voteDelegate(let c):                return c.stakeCredential
+        case .stakeVoteDelegate(let c):           return c.stakeCredential
+        case .stakeRegisterDelegate(let c):       return c.stakeCredential
+        case .voteRegisterDelegate(let c):        return c.stakeCredential
+        case .stakeVoteRegisterDelegate(let c):   return c.stakeCredential
+        default:                                  return nil
+        }
     }
 }
