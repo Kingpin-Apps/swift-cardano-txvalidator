@@ -1,3 +1,15 @@
+## 0.3.0 (2026-09-23)
+
+### Feat
+
+- report whether a redeemer budget was measured and detect scripts via redeemers
+
+### Fix
+
+- stop reporting input ordering the decoded model cannot observe
+- stop trapping on negative net collateral when an input cannot be resolved
+- include reference scripts when building the script data hash language views
+
 ## 0.2.3 (2026-07-08)
 
 ### Fix
