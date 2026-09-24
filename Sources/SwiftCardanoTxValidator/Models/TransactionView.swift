@@ -126,11 +126,6 @@ extension TransactionView {
 
         let witnessCount = witnesses.vkeyWitnesses?.count ?? 0
 
-        let hasPlutusScripts =
-            witnesses.plutusV1Script != nil ||
-            witnesses.plutusV2Script != nil ||
-            witnesses.plutusV3Script != nil
-
         // Redeemers is an enum: .list([any RedeemerProtocol]) or .map(RedeemerMap)
         let redeemerCount: Int
         if let redeemers = witnesses.redeemers {
@@ -154,6 +149,16 @@ extension TransactionView {
         }
 
         let auxHashHex = body.auxiliaryDataHash.map { "\($0)" }
+
+        // A transaction that spends via a reference script carries no script
+        // in its witness set at all, so looking only there reported "no Plutus
+        // scripts" for transactions that are nothing but a Plutus script call.
+        // Redeemers are the reliable signal: they exist only to run one.
+        let hasPlutusScripts =
+            witnesses.plutusV1Script != nil ||
+            witnesses.plutusV2Script != nil ||
+            witnesses.plutusV3Script != nil ||
+            redeemerCount > 0
 
         return TransactionView(
             txId: "\(body.id)",

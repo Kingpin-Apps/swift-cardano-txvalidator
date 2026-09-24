@@ -82,7 +82,8 @@ public struct Phase2Validator: Sendable {
                 passed: redeemerResult.passed,
                 remainingBudget: remaining,
                 logs: redeemerResult.logs,
-                error: errorStr
+                error: errorStr,
+                budgetMeasured: redeemerResult.budgetMeasured
             ))
 
             if !redeemerResult.passed {
@@ -90,11 +91,19 @@ public struct Phase2Validator: Sendable {
                     ? ""
                     : " Script logs: \(redeemerResult.logs.joined(separator: "; "))"
 
-                // Distinguish between input resolution errors and actual script failures
+                // Distinguish between input resolution errors, failures to even
+                // prepare the script, and the script itself rejecting. Only the
+                // last one is the author's script logic, and pointing at script
+                // logic for the other two sends people hunting a bug they do
+                // not have.
                 let isInputResolutionError = errorStr?.contains("Unresolved spent input") ?? false
+                let isPreparationError =
+                    errorStr?.contains("could not be prepared for evaluation") ?? false
                 let hint: String
                 if isInputResolutionError {
                     hint = "The spent input could not be resolved. This occurs when validating past transactions with a chain backend that only supports the current UTxO set (e.g., cardano-cli, Ogmios). Switch to a backend that supports historical UTxO lookup (Blockfrost, Koios) to validate spent transactions."
+                } else if isPreparationError {
+                    hint = "The script never ran — it could not be decoded, located, or given a script context. This is a limitation of the validator, not a fault in the script. See the error above for the specific cause."
                 } else {
                     hint = "Check the script logic, the redeemer value, and the datum passed to it. Inspect the script logs above for more detail."
                 }
@@ -106,9 +115,11 @@ public struct Phase2Validator: Sendable {
                         + (errorStr ?? "") + logContext,
                     hint: hint
                 ))
-            } else {
+            } else if redeemerResult.budgetMeasured {
                 // Phase-2 warning: declared execution units significantly exceed calculated units.
                 // Calculated units = restricted budget − remaining budget (per script).
+                // Only meaningful with a real cost model; the placeholder one
+                // would make every transaction look wildly over-declared.
                 let calculatedCpu = restrictedCpu - redeemerResult.remainingBudget.cpu
                 let calculatedMem = restrictedMem - redeemerResult.remainingBudget.mem
 

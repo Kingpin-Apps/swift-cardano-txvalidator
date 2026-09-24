@@ -33,4 +33,27 @@ public struct RedeemerEvalResult: Sendable, Codable, Equatable {
 
     /// Human-readable error from the CEK machine, if the script failed.
     public let error: String?
+
+    /// Whether ``remainingBudget`` came from a real cost model.
+    ///
+    /// The evaluator currently runs on a placeholder cost model, so this is
+    /// `false` and the budget figures carry no meaning. They are reported as
+    /// unmeasured rather than shown as execution units.
+    public let budgetMeasured: Bool
+
+    public init(
+        index: Int,
+        passed: Bool,
+        remainingBudget: ExUnitsView,
+        logs: [String],
+        error: String?,
+        budgetMeasured: Bool = false
+    ) {
+        self.index = index
+        self.passed = passed
+        self.remainingBudget = remainingBudget
+        self.logs = logs
+        self.error = error
+        self.budgetMeasured = budgetMeasured
+    }
 }
