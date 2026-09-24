@@ -139,9 +139,16 @@ public struct CollateralRule: ValidationRule {
                 totalCollateralAda -= ret.amount.coin
             }
 
+            // `totalCollateralAda` can be negative: a collateral input that
+            // cannot be resolved contributes nothing while the collateral
+            // return is still subtracted. That happens routinely for an
+            // already-spent input, or with any backend that only returns
+            // unspent UTxOs. Compare signed — converting to UInt64 here traps
+            // and takes the whole validation run down with it.
+
             // Check declared totalCollateral field matches actual
             if let declared = body.totalCollateral {
-                if declared != UInt64(totalCollateralAda) {
+                if Int64(exactly: declared).map({ $0 != totalCollateralAda }) ?? true {
                     issues.append(ValidationError(
                         kind: .incorrectTotalCollateral,
                         fieldPath: "transaction_body.total_collateral",
@@ -153,7 +160,7 @@ public struct CollateralRule: ValidationRule {
                 }
             }
 
-            if UInt64(totalCollateralAda) < minCollateral {
+            if totalCollateralAda < 0 || UInt64(totalCollateralAda) < minCollateral {
                 issues.append(ValidationError(
                     kind: .insufficientCollateral,
                     fieldPath: "transaction_body.collateral",
