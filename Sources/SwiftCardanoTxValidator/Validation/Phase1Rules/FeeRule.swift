@@ -69,12 +69,17 @@ public struct FeeRule: ValidationRule {
         }
 
         // 3. Reference-script fee component (Conway+)
-        //    Sum over all resolved UTxOs that carry an inline script.
-        //    Note: for full accuracy, reference-input UTxOs should also be included;
-        //    callers may pass them via context.resolvedInputs alongside spending inputs.
+        //    The scripts carried by the UTxOs this transaction spends or
+        //    references, as the ledger counts them. Other resolved UTxOs a
+        //    caller passes (collateral, or chain data kept for other
+        //    transactions) do not count.
         var totalRefScriptBytes = 0
         let era = context.era ?? .conway
-        for utxo in context.resolvedInputs where era >= .conway {
+        let counted = Set(
+            transaction.transactionBody.inputs.asArray
+                + (transaction.transactionBody.referenceInputs?.asList ?? [])
+        )
+        for utxo in context.resolvedInputs where era >= .conway && counted.contains(utxo.input) {
             if let inlineScript = utxo.output.script,
                let scriptBytes = try? inlineScript.scriptData() {
                 totalRefScriptBytes += scriptBytes.count

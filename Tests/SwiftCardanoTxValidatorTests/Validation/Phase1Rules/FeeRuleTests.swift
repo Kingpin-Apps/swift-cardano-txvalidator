@@ -66,4 +66,43 @@ struct FeeRuleTests {
     func name() {
         #expect(FeeRule().name == "fee")
     }
+
+    // MARK: - Reference-script fee
+
+    /// A UTxO holding a 20 KB PlutusV3 script, as a reference script.
+    private func scriptUTxO() throws -> UTxO {
+        let addr = try Address(
+            paymentPart: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0x02, count: 28))),
+            network: .testnet
+        )
+        return UTxO(
+            input: TransactionInput(transactionId: TransactionId(payload: Data(repeating: 0xBB, count: 32)), index: 0),
+            output: TransactionOutput(
+                address: addr, amount: Value(coin: 50_000_000),
+                script: .plutusV3Script(PlutusV3Script(data: Data(repeating: 0x42, count: 20_000)))
+            )
+        )
+    }
+
+    @Test("A reference script on a UTxO the transaction does not use costs nothing")
+    func unrelatedReferenceScriptIsFree() throws {
+        let pp = try loadProtocolParams()
+        let tx = try makeMinimalTx(fee: 200_000)
+        let context = ValidationContext(resolvedInputs: [try scriptUTxO()], era: .conway)
+        let issues = try FeeRule().validate(transaction: tx, context: context, protocolParams: pp)
+        #expect(!issues.contains { $0.kind == .feeTooSmall })
+    }
+
+    @Test("A reference script on a reference input is charged for")
+    func referencedScriptIsCharged() throws {
+        let pp = try loadProtocolParams()
+        let minimal = try makeMinimalTx(fee: 200_000)
+        let utxo = try scriptUTxO()
+        var body = minimal.transactionBody
+        body.referenceInputs = .list([utxo.input])
+        let tx = Transaction(transactionBody: body, transactionWitnessSet: TransactionWitnessSet())
+        let context = ValidationContext(resolvedInputs: [utxo], era: .conway)
+        let issues = try FeeRule().validate(transaction: tx, context: context, protocolParams: pp)
+        #expect(issues.contains { $0.kind == .feeTooSmall })
+    }
 }
