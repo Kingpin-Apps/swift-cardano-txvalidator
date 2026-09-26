@@ -165,16 +165,35 @@ public struct WitnessRule: ValidationRule {
         // -----------------------------------------------------------------------
         // MARK: 3. Missing script witnesses
         // -----------------------------------------------------------------------
+        // From Babbage on, a script may also be carried by any spending or
+        // reference input as a reference script. While one of those is
+        // unresolved, a script not found may be sitting in it, so its absence
+        // is reported as a warning rather than an error.
+        let resolvedKeys = Set(resolvedMap.keys)
+        let scriptSourceInputs = body.inputs.asArray + (body.referenceInputs?.asList ?? [])
+        let scriptSourcesKnown = era < .babbage
+            || scriptSourceInputs.allSatisfy { resolvedKeys.contains("\($0.transactionId)#\($0.index)") }
         for (hashHex, fieldPath) in requiredScriptHashes {
             if !allAvailableHashes.contains(hashHex) {
-                issues.append(ValidationError(
-                    kind: .missingScript,
-                    fieldPath: fieldPath,
-                    message: "Script \(hashHex) is required but not present in the witness "
-                        + "set or as an inline reference script in any resolved input.",
-                    hint: "Include the script in the witness set "
-                        + "or provide a reference input with the script inline."
-                ))
+                if scriptSourcesKnown {
+                    issues.append(ValidationError(
+                        kind: .missingScript,
+                        fieldPath: fieldPath,
+                        message: "Script \(hashHex) is required but not present in the witness "
+                            + "set or as an inline reference script in any resolved input.",
+                        hint: "Include the script in the witness set "
+                            + "or provide a reference input with the script inline."
+                    ))
+                } else {
+                    issues.append(ValidationError(
+                        kind: .missingScript,
+                        fieldPath: fieldPath,
+                        message: "Script \(hashHex) is required and is not in the witness set; "
+                            + "it may be a reference script on an input that was not resolved.",
+                        hint: "Resolve every spending and reference input to confirm the script is available.",
+                        isWarning: true
+                    ))
+                }
             }
         }
 
