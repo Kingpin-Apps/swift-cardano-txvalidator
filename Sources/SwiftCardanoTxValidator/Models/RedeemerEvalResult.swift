@@ -24,9 +24,16 @@ public struct RedeemerEvalResult: Sendable, Codable, Equatable {
     /// `true` if the script passed; `false` if it failed.
     public let passed: Bool
 
-    /// Execution-unit budget remaining after this script ran.
-    /// For failing scripts this is the full (unconsumed) restricted budget.
+    /// Execution-unit budget remaining after this script ran — up to the
+    /// failure when it failed. Negative in a dimension the script ran out of.
     public let remainingBudget: ExUnitsView
+
+    /// Execution units the script consumed — up to the failure when it failed.
+    /// `nil` when the script never ran (it could not be found or prepared).
+    public let consumedBudget: ExUnitsView?
+
+    /// Execution units the transaction declares for this redeemer.
+    public let declaredBudget: ExUnitsView?
 
     /// Script trace / debug logs emitted during evaluation.
     public let logs: [String]
@@ -41,17 +48,27 @@ public struct RedeemerEvalResult: Sendable, Codable, Equatable {
     /// unmeasured rather than shown as execution units.
     public let budgetMeasured: Bool
 
+    /// Whether the script consumed more than the transaction declares for it.
+    public var exceedsDeclared: Bool {
+        guard budgetMeasured, let consumed = consumedBudget, let declared = declaredBudget else { return false }
+        return consumed.memory > declared.memory || consumed.steps > declared.steps
+    }
+
     public init(
         index: Int,
         passed: Bool,
         remainingBudget: ExUnitsView,
         logs: [String],
         error: String?,
-        budgetMeasured: Bool = false
+        budgetMeasured: Bool = false,
+        consumedBudget: ExUnitsView? = nil,
+        declaredBudget: ExUnitsView? = nil
     ) {
         self.index = index
         self.passed = passed
         self.remainingBudget = remainingBudget
+        self.consumedBudget = consumedBudget
+        self.declaredBudget = declaredBudget
         self.logs = logs
         self.error = error
         self.budgetMeasured = budgetMeasured

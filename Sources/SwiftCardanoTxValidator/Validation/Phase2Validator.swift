@@ -74,6 +74,8 @@ public struct Phase2Validator: Sendable {
         let restrictedCpu  = ExBudget.restricted.cpu
         let restrictedMem  = ExBudget.restricted.mem
 
+        let declaredRedeemers = PhaseTwo.redeemers(of: transaction)
+
         for redeemerResult in phaseTwoResult.redeemers {
             let remaining = ExUnitsView(
                 memory: redeemerResult.remainingBudget.mem,
@@ -95,7 +97,15 @@ public struct Phase2Validator: Sendable {
                 remainingBudget: remaining,
                 logs: redeemerResult.logs,
                 error: errorStr,
-                budgetMeasured: redeemerResult.budgetMeasured
+                budgetMeasured: redeemerResult.budgetMeasured,
+                consumedBudget: redeemerResult.consumedBudget.map {
+                    ExUnitsView(memory: $0.mem, steps: $0.cpu)
+                },
+                declaredBudget: declaredRedeemers.indices.contains(redeemerResult.index)
+                    ? declaredRedeemers[redeemerResult.index].exUnits.map {
+                        ExUnitsView(memory: Int64($0.mem), steps: Int64($0.steps))
+                    }
+                    : nil
             ))
 
             if !redeemerResult.passed {
@@ -126,6 +136,20 @@ public struct Phase2Validator: Sendable {
                     message: "Plutus script execution failed for redeemer[\(redeemerResult.index)]: "
                         + (errorStr ?? "") + logContext,
                     hint: hint
+                ))
+            } else if let last = evalResults.last, last.exceedsDeclared,
+                let consumed = last.consumedBudget, let declared = last.declaredBudget
+            {
+                // The ledger runs each script within the units its redeemer
+                // declares, not the transaction limit this evaluation used —
+                // a script that needs more fails on chain.
+                errors.append(ValidationError(
+                    kind: .executionBudgetExceeded,
+                    fieldPath: "transaction_witness_set.redeemers[\(redeemerResult.index)]",
+                    message: "Redeemer[\(redeemerResult.index)] consumes \(consumed.memory) memory and "
+                        + "\(consumed.steps) steps, more than the \(declared.memory) memory and "
+                        + "\(declared.steps) steps it declares. The ledger stops the script at its declared units.",
+                    hint: "Raise the redeemer's execution units to at least what the script consumes."
                 ))
             } else if redeemerResult.budgetMeasured {
                 // Phase-2 warning: declared execution units significantly exceed calculated units.

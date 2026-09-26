@@ -178,6 +178,61 @@ struct Phase2ValidatorTests {
         #expect(outcome.result.errors.isEmpty)
         #expect(outcome.redeemerEvalResults.count == 1)
         #expect(outcome.redeemerEvalResults[0].passed)
+        let result = outcome.redeemerEvalResults[0]
+        #expect(result.declaredBudget == ExUnitsView(memory: 14_000_000, steps: 10_000_000_000))
+        let consumed = try #require(result.consumedBudget)
+        #expect(consumed.memory > 0 && consumed.steps > 0)
+        #expect(consumed.memory + result.remainingBudget.memory == ExBudget.restricted.mem)
+        #expect(!result.exceedsDeclared)
+    }
+
+    @Test("Phase2 reports a script that needs more than its declared units")
+    func phase2ScriptOverDeclaredUnits() async throws {
+        let pp = try loadProtocolParams()
+        let ctx = MockChainContext(protocolParams: pp)
+        let scriptData = try makePlutusV2ScriptData(
+            program: DeBruijnProgram(
+                version: (1, 1, 0),
+                term: .lambda(parameterName: DeBruijn(0), body: .lambda(
+                    parameterName: DeBruijn(0),
+                    body: .lambda(parameterName: DeBruijn(0), body: .constant(.unit))
+                ))
+            )
+        )
+        let script = PlutusV2Script(data: scriptData)
+        let scriptAddr = try Address(
+            paymentPart: .scriptHash(try plutusScriptHash(script: .plutusV2Script(script))), network: .testnet
+        )
+        let input = TransactionInput(transactionId: TransactionId(payload: Data(repeating: 0xB1, count: 32)), index: 0)
+        let utxo = UTxO(input: input, output: TransactionOutput(
+            address: scriptAddr, amount: Value(coin: 2_000_000),
+            datumOption: DatumOption(datum: PlutusData.bigInt(.int(42))), postAlonzo: true
+        ))
+        let redeemer = Redeemer(
+            tag: .spend, index: 0, data: PlutusData.bigInt(.int(0)),
+            exUnits: ExecutionUnits(mem: 1, steps: 1)
+        )
+        let changeAddr = try Address(
+            paymentPart: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0x04, count: 28))),
+            network: .testnet
+        )
+        let body = TransactionBody(
+            inputs: .list([input]),
+            outputs: [TransactionOutput(address: changeAddr, amount: Value(coin: 1_500_000), postAlonzo: true)],
+            fee: 200_000,
+            collateral: .list([TransactionInput(transactionId: TransactionId(payload: Data(repeating: 0xC1, count: 32)), index: 0)])
+        )
+        let tx = Transaction(
+            transactionBody: body,
+            transactionWitnessSet: TransactionWitnessSet(plutusV2Script: .list([script]), redeemers: .list([redeemer]))
+        )
+
+        let outcome = try await Phase2Validator().evaluate(transaction: tx, resolvedInputs: [utxo], chainContext: ctx)
+        let result = try #require(outcome.redeemerEvalResults.first)
+        #expect(result.passed)
+        #expect(result.budgetMeasured)
+        #expect(result.exceedsDeclared)
+        #expect(outcome.result.errors.contains { $0.kind == .executionBudgetExceeded })
     }
 
     @Test("Phase2 reports error for always-fails PlutusV2 script")
