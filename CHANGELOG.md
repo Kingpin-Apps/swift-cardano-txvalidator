@@ -1,3 +1,9 @@
+## 0.4.1 (2026-09-26)
+
+### Fix
+
+- **fee**: charge only for reference scripts the transaction uses
+
 ## 0.4.0 (2026-09-26)
 
 ### Feat
