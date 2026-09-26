@@ -38,7 +38,7 @@ Add the package to your `Package.swift`:
 dependencies: [
     .package(
         url: "https://github.com/Kingpin-Apps/swift-cardano-txvalidator.git",
-        from: "1.0.0"
+        from: "0.4.0"
     ),
 ],
 targets: [
@@ -69,8 +69,13 @@ print(view.txId)          // Blake2b-256 hash of the transaction body
 print(view.fee)           // Fee in lovelace
 print(view.inputs)        // ["<txhash>#<index>", ...]
 print(view.outputs)       // [OutputView]
+print(view.possibleEras)  // e.g. "babbage…conway"
 print(try validator.inspect(cborHex: rawTxHex).toJSON())  // via TxValidatorReport
 ```
+
+The view also lists certificates, withdrawals, votes, proposals, treasury fields,
+witness-set datums and scripts, and every redeemer with its tag and what it is for
+(the spent input, minting policy, reward account, certificate, voter or proposal).
 
 ### Phase-1 validation (ledger rules only)
 
@@ -182,6 +187,11 @@ let context = ValidationContext(
     era: .conway
 )
 ```
+
+Leave `era` out to validate under the latest era the transaction's own contents allow.
+`ValidationContext.from(transaction:chainContext:)` takes the chain's current era, but
+clamps it to the eras the transaction could belong to (`transaction.possibleEras`), so a
+transaction from an earlier era is checked under that era's rules.
 
 Use `TxValidator.necessaryData(cborHex:)` to discover exactly which chain-state records to fetch for a given transaction before constructing the context:
 
