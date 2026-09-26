@@ -76,9 +76,10 @@ public struct SignatureRule: ValidationRule {
         // -----------------------------------------------------------------------
         // MARK: 2. Ed25519 signature verification — vkey witnesses
         // -----------------------------------------------------------------------
-        // tx body hash = Blake2b-256 of the CBOR-serialised transaction body
-        let txBodyCBOR = body.payload
-        let txBodyHash = try Utils.blake2b256(txBodyCBOR)
+        // The signed message is the transaction id: Blake2b-256 of the body
+        // *as written*. A re-encoding of the decoded body can differ from it,
+        // and every signature would then fail to verify.
+        let txBodyHash = body.hash()
 
         for (i, vkw) in vkeyWitnesses.enumerated() {
             let vkeyBytes = vkw.vkey.payload

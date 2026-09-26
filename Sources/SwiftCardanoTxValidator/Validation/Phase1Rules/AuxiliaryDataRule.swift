@@ -48,7 +48,7 @@ public struct AuxiliaryDataRule: ValidationRule {
         }
 
         do {
-            let computed = try auxData.hash()
+            let computed = try transaction.auxiliaryDataHash() ?? auxData.hash()
             let computedHex = "\(computed)"
             let declaredHex = "\(declared)"
 
