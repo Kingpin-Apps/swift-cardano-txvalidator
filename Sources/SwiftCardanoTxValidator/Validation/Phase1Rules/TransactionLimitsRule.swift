@@ -34,12 +34,12 @@ public struct TransactionLimitsRule: ValidationRule {
         }
 
         // 2. Maximum transaction size
-        if let txBytes = try? transaction.toCBORData() {
-            if txBytes.count > protocolParams.maxTxSize {
+        if let txSize = try? Utils.feeRelevantSize(of: transaction) {
+            if txSize > protocolParams.maxTxSize {
                 issues.append(ValidationError(
                     kind: .maximumTransactionSizeExceeded,
                     fieldPath: "transaction_body",
-                    message: "Transaction serialises to \(txBytes.count) bytes, exceeding the "
+                    message: "Transaction serialises to \(txSize) bytes, exceeding the "
                         + "maximum allowed \(protocolParams.maxTxSize) bytes.",
                     hint: "Reduce the transaction size by removing unnecessary witnesses, "
                         + "datums, or splitting into multiple transactions."

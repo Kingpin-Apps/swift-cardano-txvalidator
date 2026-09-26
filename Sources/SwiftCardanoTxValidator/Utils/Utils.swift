@@ -227,6 +227,19 @@ public enum Utils {
     /// unknown, which is what makes the language views uncertain. Collateral and
     /// reference inputs are not included: neither contributes a script hash that
     /// the transaction is required to satisfy.
+    /// The size of a transaction as the ledger measures it for its fee and
+    /// against the maximum transaction size.
+    ///
+    /// From Alonzo on, a transaction is written `[body, witnesses, isValid,
+    /// auxiliary data]`, but the ledger sizes it without the one-byte
+    /// `isValid` flag, as the three-element shape earlier eras used — so the
+    /// fee does not change with the flag. Shelley to Mary transactions are
+    /// sized as written.
+    public static func feeRelevantSize(of transaction: Transaction) throws -> Int {
+        let bytes = try transaction.toCBORData()
+        return bytes.first == 0x84 ? bytes.count - 1 : bytes.count
+    }
+
     public static func unresolvedSpendingInputs(
         transaction: Transaction?,
         resolvedInputs: [UTxO]

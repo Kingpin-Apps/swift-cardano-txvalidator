@@ -25,9 +25,9 @@ public struct FeeRule: ValidationRule {
         let witnesses = transaction.transactionWitnessSet
         let declaredFee = body.fee   // Coin = UInt64
 
-        // Serialise the transaction to get its byte size.
+        // The size the ledger charges for — see `Utils.feeRelevantSize`.
         // If serialisation fails, we skip the size-based check gracefully.
-        guard let txBytes = try? transaction.toCBORData() else {
+        guard let txSize = try? Utils.feeRelevantSize(of: transaction) else {
             return [ValidationError(
                 kind: .unknown,
                 fieldPath: "transaction_body.fee",
@@ -36,7 +36,7 @@ public struct FeeRule: ValidationRule {
         }
 
         // 1. Size-based fee component
-        let txSizeFee = UInt64(protocolParams.txFeePerByte) * UInt64(txBytes.count)
+        let txSizeFee = UInt64(protocolParams.txFeePerByte) * UInt64(txSize)
         var minFee = txSizeFee + UInt64(protocolParams.txFeeFixed)
 
         // 2. Execution-unit fee component (Alonzo+)
@@ -62,7 +62,10 @@ public struct FeeRule: ValidationRule {
 
             let exUnitFee = protocolParams.executionUnitPrices.priceMemory * totalMem
                           + protocolParams.executionUnitPrices.priceSteps  * totalSteps
-            minFee += UInt64(exUnitFee)
+            // The ledger rounds the script fee up. Prices are rationals held
+            // here as doubles, so a hair of tolerance keeps float noise on an
+            // exact integer from rounding it up a lovelace too far.
+            minFee += UInt64(max(0, (exUnitFee - 1e-6).rounded(.up)))
         }
 
         // 3. Reference-script fee component (Conway+)
@@ -70,7 +73,8 @@ public struct FeeRule: ValidationRule {
         //    Note: for full accuracy, reference-input UTxOs should also be included;
         //    callers may pass them via context.resolvedInputs alongside spending inputs.
         var totalRefScriptBytes = 0
-        for utxo in context.resolvedInputs {
+        let era = context.era ?? .conway
+        for utxo in context.resolvedInputs where era >= .conway {
             if let inlineScript = utxo.output.script,
                let scriptBytes = try? inlineScript.scriptData() {
                 totalRefScriptBytes += scriptBytes.count
@@ -103,7 +107,7 @@ public struct FeeRule: ValidationRule {
                 message: "Fee \(declaredFee) lovelace is less than the minimum \(minFee) lovelace "
                     + "(txFeePerByte=\(protocolParams.txFeePerByte), "
                     + "txFeeFixed=\(protocolParams.txFeeFixed), "
-                    + "txSize=\(txBytes.count) bytes).",
+                    + "txSize=\(txSize) bytes).",
                 hint: "Increase the fee to at least \(minFee) lovelace."
             ))
         } else if declaredFee > minFee * 110 / 100 {
