@@ -78,6 +78,29 @@ public struct TransactionView: Sendable, Codable, Equatable {
 
     /// Hex-encoded auxiliary data hash, if present.
     public let auxiliaryDataHash: String?
+
+    // MARK: - Details
+
+    /// The eras the transaction could have been written for, e.g. `babbage…conway`.
+    public var possibleEras: String = ""
+    /// Reward withdrawals.
+    public var withdrawals: [WithdrawalView] = []
+    /// Certificates, in body order.
+    public var certificates: [CertificateView] = []
+    /// Governance votes, in the ledger's voter order.
+    public var votes: [VoteView] = []
+    /// Governance proposals, in body order.
+    public var proposals: [ProposalView] = []
+    /// The treasury value the transaction asserts, lovelace (Conway).
+    public var currentTreasuryAmount: UInt64? = nil
+    /// The treasury donation, lovelace (Conway).
+    public var treasuryDonation: UInt64? = nil
+    /// Datums in the witness set.
+    public var datums: [DatumView] = []
+    /// Scripts in the witness set.
+    public var scripts: [ScriptView] = []
+    /// Redeemers, each with its tag and what it is for.
+    public var redeemers: [RedeemerView] = []
 }
 
 // MARK: - Nested OutputView
@@ -179,7 +202,17 @@ extension TransactionView {
             witnessCount: witnessCount,
             networkId: body.networkId,
             mint: mint,
-            auxiliaryDataHash: auxHashHex
+            auxiliaryDataHash: auxHashHex,
+            possibleEras: tx.possibleEras.description,
+            withdrawals: DetailViews.withdrawals(body),
+            certificates: DetailViews.certificates(body),
+            votes: DetailViews.votes(body),
+            proposals: DetailViews.proposals(body),
+            currentTreasuryAmount: body.currentTreasuryAmount,
+            treasuryDonation: body.treasuryDonation.map { UInt64($0.value) },
+            datums: DetailViews.datums(witnesses),
+            scripts: DetailViews.scripts(witnesses),
+            redeemers: DetailViews.redeemers(tx)
         )
     }
 }
