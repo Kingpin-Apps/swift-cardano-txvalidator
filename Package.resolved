@@ -1,5 +1,5 @@
 {
-  "originHash" : "0e2856e225699e46258b5cf3f150a14f32ccab7116adc98d783537e0e0ff1407",
+  "originHash" : "cd72ebbfb0b3953b80f0e15d55fabd9ca2738224197f42c2fad24ac3bda28929",
   "pins" : [
     {
       "identity" : "base32",
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-async-algorithms.git",
       "state" : {
-        "revision" : "3da39bbc4e687d4192af7c9cf4eab805745a0b9c",
-        "version" : "1.1.5"
+        "revision" : "789dcf1f3d3f00251482f40a432ab7144c181987",
+        "version" : "1.1.6"
       }
     },
     {
@@ -123,17 +123,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cardano-chain.git",
       "state" : {
-        "revision" : "9630accec200076e52993b50116e3e77f764fdaf",
-        "version" : "0.9.2"
-      }
-    },
-    {
-      "identity" : "swift-cardano-core",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Kingpin-Apps/swift-cardano-core.git",
-      "state" : {
-        "revision" : "083f444477ecec7c96a053c42960256cf0c39eea",
-        "version" : "0.7.1"
+        "revision" : "8d169668df19c242df13500895e731014486f426",
+        "version" : "0.10.0"
       }
     },
     {
@@ -150,8 +141,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cardano-uplc.git",
       "state" : {
-        "revision" : "60d058455d84e37593eb317592775c0f824252f5",
-        "version" : "0.6.1"
+        "revision" : "720c149d1062cf2a3e3c7556017eb740f697c099",
+        "version" : "0.7.0"
       }
     },
     {
@@ -159,8 +150,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cbor-codable.git",
       "state" : {
-        "revision" : "e35f13077f893193fad30f869b28c372188398f3",
-        "version" : "0.3.3"
+        "revision" : "98fc0f0138329593237cbbc2991de1da17d41b55",
+        "version" : "0.3.4"
       }
     },
     {
@@ -177,8 +168,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections.git",
       "state" : {
-        "revision" : "a66de878e87ef5a3d5d390e0f6d9002aa5541a43",
-        "version" : "1.7.0"
+        "revision" : "98ef3c98609a1e31b7e157b5b619579001a789d6",
+        "version" : "1.7.1"
       }
     },
     {
