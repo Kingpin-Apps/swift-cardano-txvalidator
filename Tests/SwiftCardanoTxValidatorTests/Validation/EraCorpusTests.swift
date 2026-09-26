@@ -20,9 +20,21 @@ enum EraCorpus {
         }
     }
 
+    /// The corpus directory. Toolchains lay out a test bundle's copied
+    /// `Resources` folder differently, so each place it can land is tried.
+    static let directory: URL? = {
+        let candidates = [
+            Bundle.module.url(forResource: "tx-corpus", withExtension: nil, subdirectory: "Resources"),
+            Bundle.module.url(forResource: "tx-corpus", withExtension: nil),
+            Bundle.module.resourceURL?.appendingPathComponent("Resources/tx-corpus"),
+            Bundle.module.resourceURL?.appendingPathComponent("tx-corpus"),
+        ]
+        return candidates.compactMap { $0 }.first { FileManager.default.fileExists(atPath: $0.path) }
+    }()
+
     static func read(_ path: String) throws -> String {
-        let url = try #require(Bundle.module.resourceURL?.appendingPathComponent("Resources/tx-corpus/\(path)"))
-        return try String(contentsOf: url, encoding: .utf8)
+        let url = try #require(directory, "tx-corpus not found in \(Bundle.module.bundlePath)")
+        return try String(contentsOf: url.appendingPathComponent(path), encoding: .utf8)
     }
 
     static let entries: [Entry] = [Era.shelley, .allegra, .mary, .alonzo, .babbage, .conway].flatMap { era -> [Entry] in
@@ -38,6 +50,7 @@ enum EraCorpus {
 @Suite("Era corpus")
 struct EraCorpusTests {
     @Test func corpusIsPresent() {
+        #expect(EraCorpus.directory != nil, "tx-corpus not found in \(Bundle.module.bundlePath)")
         #expect(EraCorpus.entries.count == 74)
     }
 
