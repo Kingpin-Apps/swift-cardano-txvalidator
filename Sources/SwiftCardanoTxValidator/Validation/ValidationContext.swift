@@ -54,7 +54,8 @@ public struct ValidationContext: Sendable {
     public let currentEpoch: UInt64?
 
     /// The transaction era. When set, rules skip era-inappropriate checks.
-    /// If `nil`, Conway is assumed (backward-compatible default).
+    /// If `nil`, the latest era the transaction's contents allow is used; see
+    /// ``SwiftCardanoCore/Transaction/possibleEras``.
     public let era: Era?
 
     public init(
@@ -87,6 +88,26 @@ public struct ValidationContext: Sendable {
         self.treasuryValue = treasuryValue
         self.currentEpoch = currentEpoch
         self.era = era
+    }
+
+    /// This context with `era` in place of its era.
+    public func with(era: Era?) -> ValidationContext {
+        ValidationContext(
+            resolvedInputs: resolvedInputs,
+            spentInputRefs: spentInputRefs,
+            currentSlot: currentSlot,
+            network: network,
+            accountContexts: accountContexts,
+            poolContexts: poolContexts,
+            drepContexts: drepContexts,
+            govActionContexts: govActionContexts,
+            lastEnactedGovAction: lastEnactedGovAction,
+            currentCommitteeMembers: currentCommitteeMembers,
+            potentialCommitteeMembers: potentialCommitteeMembers,
+            treasuryValue: treasuryValue,
+            currentEpoch: currentEpoch,
+            era: era
+        )
     }
 
     // MARK: - Finder methods

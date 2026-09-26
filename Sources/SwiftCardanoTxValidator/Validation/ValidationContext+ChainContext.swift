@@ -11,7 +11,8 @@ extension ValidationContext {
     /// - ``currentSlot`` — last block slot number
     /// - ``network`` — network identifier
     /// - ``currentEpoch`` — current epoch number
-    /// - ``era`` — current era
+    /// - ``era`` — the chain's current era, clamped to the eras the transaction
+    ///   could belong to (``SwiftCardanoCore/Transaction/possibleEras``)
     /// - ``accountContexts`` — stake address state for each reward account referenced in
     ///   withdrawals and certificates
     /// - ``poolContexts`` — stake pool registration state for each pool referenced in certificates
@@ -62,7 +63,11 @@ extension ValidationContext {
 
         let slot = try await chainContext.lastBlockSlot()
         let epoch = try await chainContext.epoch()
-        let era = try await chainContext.era()
+        // The chain's current era, unless the transaction cannot belong to
+        // it — an older transaction is validated under the era it was
+        // written for.
+        let tipEra = try await chainContext.era()
+        let era = transaction.possibleEras.clamp(tipEra ?? .conway)
 
         // MARK: - Account Contexts
 

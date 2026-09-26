@@ -42,6 +42,12 @@ public struct Phase1Validator: Sendable {
 
         var allIssues: [ValidationError] = []
 
+        // Without an era, validate under the latest era the transaction's
+        // own contents allow, rather than always Conway.
+        let context = context.era == nil
+            ? context.with(era: transaction.possibleEras.latest)
+            : context
+
         for rule in rules {
             do {
                 let issues = try rule.validate(
