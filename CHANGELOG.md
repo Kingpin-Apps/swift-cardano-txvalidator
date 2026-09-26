@@ -1,9 +1,23 @@
+## 0.4.0 (2026-09-26)
+
+### Feat
+
+- **phase2**: report consumed and declared execution units
+- **view**: add certificates, governance, datums, scripts and redeemers
+- **era**: take the era from the transaction, not the chain tip
+
+### Fix
+
+- **witness**: warn when a missing script may be on an unresolved input
+- **phase1**: size transactions as the ledger does for fees and limits
+- **phase1**: check signatures and metadata hash over the written bytes
+
 ## 0.3.4 (2026-09-24)
 
 ### Fix
 
-- hash the empty redeemer map when a witness set has no redeemers
 - carry tag-258 indefinite datum sets through script data hashing
+- hash the empty redeemer map when a witness set has no redeemers
 
 ## 0.3.3 (2026-09-24)
 
