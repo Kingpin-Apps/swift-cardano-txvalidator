@@ -369,6 +369,49 @@ struct BalanceRuleTests {
         #expect(issues.contains { $0.kind == .withdrawalNotDelegatedToDRep })
     }
 
+    // MARK: - Withdrawal: account stored as bech32
+
+    @Test("BalanceRule finds a bech32 account for a withdrawal, and exempts script accounts from DRep delegation")
+    func withdrawalFromBech32ScriptAccount() throws {
+        let pp = try loadProtocolParams()
+        let rule = BalanceRule()
+
+        // A mainnet script-hash reward account, as a Minswap batcher withdraws
+        // zero from it: header 0xF1.
+        let rewardAccountData = "f11eae96baf29e27682ea3f815aba361a0c6059d45e4bfbe95bbd2f44a".hexStringToData
+
+        let txId = TransactionId(payload: Data(repeating: 0xB6, count: 32))
+        let input = TransactionInput(transactionId: txId, index: 0)
+        let addr = try Address(
+            paymentPart: .verificationKeyHash(
+                VerificationKeyHash(payload: Data(repeating: 0x01, count: 28))
+            ),
+            network: .mainnet
+        )
+        let withdrawals = Withdrawals([rewardAccountData: 0])
+        let body = TransactionBody(
+            inputs: .list([input]),
+            outputs: [TransactionOutput(address: addr, amount: Value(coin: 2_000_000))],
+            fee: 200_000,
+            withdrawals: withdrawals
+        )
+        let tx = Transaction(transactionBody: body, transactionWitnessSet: TransactionWitnessSet())
+        // As a chain context stores it: bech32, registered, no DRep.
+        let ctx = ValidationContext(
+            accountContexts: [
+                AccountInputContext(
+                    rewardAddress: "stake17y02a946720zw6pw50upt2arvxsvvpvaghjtl054h0f0gjsfyjz59",
+                    isRegistered: true,
+                    balance: 0
+                )
+            ]
+        )
+
+        let issues = try rule.validate(transaction: tx, context: ctx, protocolParams: pp)
+        #expect(!issues.contains { $0.kind == .rewardAccountNotExisting })
+        #expect(!issues.contains { $0.kind == .withdrawalNotDelegatedToDRep })
+    }
+
     // MARK: - Smoke
 
     @Test("BalanceRule name is correct")

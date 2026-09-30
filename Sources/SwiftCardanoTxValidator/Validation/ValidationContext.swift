@@ -112,9 +112,22 @@ public struct ValidationContext: Sendable {
 
     // MARK: - Finder methods
 
-    /// Look up account context by reward address string.
+    /// Look up account context by reward address, in bech32 or as the address
+    /// bytes in hex. Either form finds a context stored in either form.
     public func findAccountContext(rewardAddress: String) -> AccountInputContext? {
-        accountContexts.first { $0.rewardAddress == rewardAddress }
+        if let exact = accountContexts.first(where: { $0.rewardAddress == rewardAddress }) {
+            return exact
+        }
+        guard let bytes = Self.rewardAddressBytes(rewardAddress) else { return nil }
+        return accountContexts.first { Self.rewardAddressBytes($0.rewardAddress) == bytes }
+    }
+
+    /// The bytes of a reward address written in hex or bech32.
+    static func rewardAddressBytes(_ address: String) -> Data? {
+        if !address.isEmpty, address.count.isMultiple(of: 2), address.allSatisfy(\.isHexDigit) {
+            return address.hexStringToData
+        }
+        return (try? Address(from: .string(address)))?.toBytes()
     }
 
     /// Look up pool context by pool key hash (hex).

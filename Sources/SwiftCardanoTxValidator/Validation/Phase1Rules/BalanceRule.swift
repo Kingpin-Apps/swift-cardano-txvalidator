@@ -173,8 +173,10 @@ public struct BalanceRule: ValidationRule {
                                 hint: "Set the withdrawal amount to \(balance) lovelace."
                             ))
                         }
-                        // Check DRep delegation
-                        if accountCtx.delegatedToDRep == nil {
+                        // Check DRep delegation. Only key-hash accounts need
+                        // one; header bit 4 marks a script-hash account.
+                        let isScriptAccount = rewardAccount.first.map { $0 & 0x10 != 0 } ?? false
+                        if accountCtx.delegatedToDRep == nil, !isScriptAccount {
                             issues.append(ValidationError(
                                 kind: .withdrawalNotDelegatedToDRep,
                                 fieldPath: "transaction_body.withdrawals[\(i)]",
