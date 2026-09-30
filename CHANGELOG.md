@@ -1,3 +1,9 @@
+## 0.4.2 (2026-09-30)
+
+### Fix
+
+- **balance**: find bech32 accounts for withdrawals; exempt script accounts from DRep delegation
+
 ## 0.4.1 (2026-09-26)
 
 ### Fix
