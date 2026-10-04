@@ -250,12 +250,12 @@ struct SignatureRuleTests {
         let pp = try loadProtocolParams()
         let rule = SignatureRule()
 
-        // A certificate requiring a vkey witness (e.g., stake registration)
+        // A certificate requiring a vkey witness (e.g., stake deregistration)
         let vkeyHash = VerificationKeyHash(payload: Data(repeating: 0x08, count: 28))
         let stakeCred = StakeCredential(
             credential: .verificationKeyHash(vkeyHash)
         )
-        let cert = Certificate.stakeRegistration(StakeRegistration(stakeCredential: stakeCred))
+        let cert = Certificate.stakeDeregistration(StakeDeregistration(stakeCredential: stakeCred))
         let body = TransactionBody(
             inputs: .list([]),
             outputs: [],
@@ -271,5 +271,17 @@ struct SignatureRuleTests {
         let missing = issues.filter { $0.kind == ValidationError.Kind.missingVKeyWitness }
         #expect(missing.count == 1)
         #expect(missing.first?.message.contains("required by certificate at index 0") == true)
+    }
+
+    @Test("A pre-Conway stake registration needs no witness from the stake key")
+    func legacyRegistrationNeedsNoWitness() throws {
+        let stakeCred = StakeCredential(credential: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0x09, count: 28))))
+        let body = TransactionBody(
+            inputs: .list([]), outputs: [], fee: 100_000,
+            certificates: .list([.stakeRegistration(StakeRegistration(stakeCredential: stakeCred))])
+        )
+        let tx = Transaction(transactionBody: body, transactionWitnessSet: TransactionWitnessSet())
+        let issues = try SignatureRule().validate(transaction: tx, context: ValidationContext(), protocolParams: try loadProtocolParams())
+        #expect(!issues.contains { $0.kind == ValidationError.Kind.missingVKeyWitness })
     }
 }

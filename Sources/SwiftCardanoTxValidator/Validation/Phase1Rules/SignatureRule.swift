@@ -354,8 +354,9 @@ private func collectCertificateKeyHashes(_ cert: Certificate, into set: inout Se
     }
 
     switch cert {
-    // Stake credential certs — key-credential requires vkey witness
-    case .stakeRegistration(let c):         if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
+    // Stake credential certs — key-credential requires vkey witness. The
+    // pre-Conway registration (cert 0) is the exception: the ledger asks no
+    // witness for it.
     case .stakeDeregistration(let c):       if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
     case .stakeDelegation(let c):           if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
     case .register(let c):                  if let h = keyHashHex(from: c.stakeCredential) { set.insert(h) }
