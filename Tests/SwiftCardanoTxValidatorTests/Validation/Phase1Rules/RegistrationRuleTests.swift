@@ -353,4 +353,48 @@ struct RegistrationRuleTests {
         let issues = try runRule(certs: [cert], context: ctx)
         #expect(issues.isEmpty, "Expected no issues when chain state is absent")
     }
+
+    // MARK: - Chain state as providers give it
+
+    @Test("A stake account, pool and DRep named in bech32 by the chain match the certificate's credentials")
+    func chainIdsMatchCredentials() throws {
+        let cred = makeStakeCred(0x30)
+        let pool = makePoolKeyHash(0x31)
+        let drepHash = VerificationKeyHash(payload: Data(repeating: 0x32, count: 28))
+        let drep = DRep(credential: .verificationKeyHash(drepHash))
+        guard case .verificationKeyHash(let stakeHash) = cred.credential else { return }
+        let reward = try Address(paymentPart: nil, stakingPart: .verificationKeyHash(stakeHash), network: .testnet).toBech32()
+        let ctx = ValidationContext(
+            accountContexts: [AccountInputContext(rewardAddress: reward, isRegistered: true)],
+            poolContexts: [PoolInputContext(poolId: pool.payload.toHex, isRegistered: true)],
+            drepContexts: [DRepInputContext(drepId: try drep.id(), isRegistered: true)]
+        )
+        let issues = try runRule(certs: [
+            .stakeVoteDelegate(StakeVoteDelegate(stakeCredential: cred, poolKeyHash: pool, drep: drep)),
+        ], context: ctx)
+        #expect(issues.isEmpty, "\(issues.map(\.message))")
+    }
+
+    @Test("Delegating votes to abstain or no-confidence needs no registered DRep")
+    func predefinedDReps() throws {
+        let cred = makeStakeCred(0x33)
+        let ctx = ValidationContext(accountContexts: [AccountInputContext(rewardAddress: "\(cred)", isRegistered: true)])
+        let issues = try runRule(certs: [
+            .voteDelegate(VoteDelegate(stakeCredential: cred, drep: DRep(credential: .alwaysAbstain))),
+            .voteDelegate(VoteDelegate(stakeCredential: cred, drep: DRep(credential: .alwaysNoConfidence))),
+        ], context: ctx)
+        #expect(issues.isEmpty, "\(issues.map(\.message))")
+    }
+
+    @Test("A delegation from an unregistered account is still caught with bech32 chain state")
+    func unregisteredStillCaught() throws {
+        let registered = makeStakeCred(0x34)
+        guard case .verificationKeyHash(let hash) = registered.credential else { return }
+        let reward = try Address(paymentPart: nil, stakingPart: .verificationKeyHash(hash), network: .testnet).toBech32()
+        let ctx = ValidationContext(accountContexts: [AccountInputContext(rewardAddress: reward, isRegistered: true)])
+        let issues = try runRule(certs: [
+            .voteDelegate(VoteDelegate(stakeCredential: makeStakeCred(0x35), drep: DRep(credential: .alwaysAbstain))),
+        ], context: ctx)
+        #expect(issues.contains { $0.kind == .stakeNotRegistered })
+    }
 }

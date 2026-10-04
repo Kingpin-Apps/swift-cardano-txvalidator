@@ -98,13 +98,13 @@ private struct RegistrationState {
 
     mutating func loadInitialState(from context: ValidationContext) {
         for account in context.accountContexts where account.isRegistered {
-            initialAccounts.insert(account.rewardAddress)
+            initialAccounts.insert(RegistrationKey.normalize(account.rewardAddress))
         }
         for pool in context.poolContexts where pool.isRegistered {
-            initialPools.insert(pool.poolId)
+            initialPools.insert(RegistrationKey.normalize(pool.poolId))
         }
         for drep in context.drepContexts where drep.isRegistered {
-            initialDReps.insert(drep.drepId)
+            initialDReps.insert(RegistrationKey.normalize(drep.drepId))
         }
     }
 
@@ -114,15 +114,15 @@ private struct RegistrationState {
         for cert in certs {
             switch cert {
             case .stakeRegistration(let c):
-                stakeRegistrationsPendingInTx.insert("\(c.stakeCredential)")
+                stakeRegistrationsPendingInTx.insert(RegistrationKey.of(c.stakeCredential))
             case .register(let c):
-                stakeRegistrationsPendingInTx.insert("\(c.stakeCredential)")
+                stakeRegistrationsPendingInTx.insert(RegistrationKey.of(c.stakeCredential))
             case .stakeRegisterDelegate(let c):
-                stakeRegistrationsPendingInTx.insert("\(c.stakeCredential)")
+                stakeRegistrationsPendingInTx.insert(RegistrationKey.of(c.stakeCredential))
             case .voteRegisterDelegate(let c):
-                stakeRegistrationsPendingInTx.insert("\(c.stakeCredential)")
+                stakeRegistrationsPendingInTx.insert(RegistrationKey.of(c.stakeCredential))
             case .stakeVoteRegisterDelegate(let c):
-                stakeRegistrationsPendingInTx.insert("\(c.stakeCredential)")
+                stakeRegistrationsPendingInTx.insert(RegistrationKey.of(c.stakeCredential))
             default:
                 break
             }
@@ -153,56 +153,56 @@ private struct RegistrationState {
     mutating func updateState(cert: Certificate, certIndex: UInt32) {
         switch cert {
         case .stakeRegistration(let c):
-            let id = "\(c.stakeCredential)"
+            let id = RegistrationKey.of(c.stakeCredential)
             accountRegistrationsInTx[id] = accountRegistrationsInTx[id] ?? certIndex
             accountDeregistrationsInTx.remove(id)
 
         case .register(let c):
-            let id = "\(c.stakeCredential)"
+            let id = RegistrationKey.of(c.stakeCredential)
             accountRegistrationsInTx[id] = accountRegistrationsInTx[id] ?? certIndex
             accountDeregistrationsInTx.remove(id)
 
         case .stakeRegisterDelegate(let c):
-            let id = "\(c.stakeCredential)"
+            let id = RegistrationKey.of(c.stakeCredential)
             accountRegistrationsInTx[id] = accountRegistrationsInTx[id] ?? certIndex
             accountDeregistrationsInTx.remove(id)
 
         case .voteRegisterDelegate(let c):
-            let id = "\(c.stakeCredential)"
+            let id = RegistrationKey.of(c.stakeCredential)
             accountRegistrationsInTx[id] = accountRegistrationsInTx[id] ?? certIndex
             accountDeregistrationsInTx.remove(id)
 
         case .stakeVoteRegisterDelegate(let c):
-            let id = "\(c.stakeCredential)"
+            let id = RegistrationKey.of(c.stakeCredential)
             accountRegistrationsInTx[id] = accountRegistrationsInTx[id] ?? certIndex
             accountDeregistrationsInTx.remove(id)
 
         case .stakeDeregistration(let c):
-            let id = "\(c.stakeCredential)"
+            let id = RegistrationKey.of(c.stakeCredential)
             accountDeregistrationsInTx.insert(id)
             accountRegistrationsInTx.removeValue(forKey: id)
 
         case .unregister(let c):
-            let id = "\(c.stakeCredential)"
+            let id = RegistrationKey.of(c.stakeCredential)
             accountDeregistrationsInTx.insert(id)
             accountRegistrationsInTx.removeValue(forKey: id)
 
         case .poolRegistration(let c):
-            let id = "\(c.poolParams.poolOperator)"
+            let id = RegistrationKey.of(c.poolParams.poolOperator)
             poolRegistrationsInTx[id] = poolRegistrationsInTx[id] ?? certIndex
             poolRetirementsInTx.removeValue(forKey: id)
 
         case .poolRetirement(let c):
-            let id = "\(c.poolKeyHash)"
+            let id = RegistrationKey.of(c.poolKeyHash)
             poolRetirementsInTx[id] = UInt64(c.epoch)
 
         case .registerDRep(let c):
-            let id = "\(c.drepCredential)"
+            let id = RegistrationKey.of(c.drepCredential)
             drepRegistrationsInTx[id] = drepRegistrationsInTx[id] ?? certIndex
             drepDeregistrationsInTx.remove(id)
 
         case .unRegisterDRep(let c):
-            let id = "\(c.drepCredential)"
+            let id = RegistrationKey.of(c.drepCredential)
             drepDeregistrationsInTx.insert(id)
             drepRegistrationsInTx.removeValue(forKey: id)
 
@@ -238,7 +238,7 @@ private extension RegistrationRule {
         // ── Stake registration certs ─────────────────────────────────
         case .stakeRegistration(let c):
             validateStakeRegistration(
-                id: "\(c.stakeCredential)", certIndex: certIndex, fieldPath: fieldPath,
+                id: RegistrationKey.of(c.stakeCredential), certIndex: certIndex, fieldPath: fieldPath,
                 state: state, issues: &issues
             )
 
@@ -246,15 +246,15 @@ private extension RegistrationRule {
             // Conway+ only
             guard era >= .conway else { break }
             validateStakeRegistration(
-                id: "\(c.stakeCredential)", certIndex: certIndex, fieldPath: fieldPath,
+                id: RegistrationKey.of(c.stakeCredential), certIndex: certIndex, fieldPath: fieldPath,
                 state: state, issues: &issues
             )
 
         case .stakeRegisterDelegate(let c):
             // Conway+ only
             guard era >= .conway else { break }
-            let accountId = "\(c.stakeCredential)"
-            let poolId = "\(c.poolKeyHash)"
+            let accountId = RegistrationKey.of(c.stakeCredential)
+            let poolId = RegistrationKey.of(c.poolKeyHash)
             validateStakeRegistration(
                 id: accountId, certIndex: certIndex, fieldPath: fieldPath,
                 state: state, issues: &issues
@@ -267,8 +267,8 @@ private extension RegistrationRule {
         case .voteRegisterDelegate(let c):
             // Conway+ only
             guard era >= .conway else { break }
-            let accountId = "\(c.stakeCredential)"
-            let drepId = "\(c.drep)"
+            let accountId = RegistrationKey.of(c.stakeCredential)
+            let drepId = RegistrationKey.of(c.drep)
             validateStakeRegistration(
                 id: accountId, certIndex: certIndex, fieldPath: fieldPath,
                 state: state, issues: &issues
@@ -281,9 +281,9 @@ private extension RegistrationRule {
         case .stakeVoteRegisterDelegate(let c):
             // Conway+ only
             guard era >= .conway else { break }
-            let accountId = "\(c.stakeCredential)"
-            let poolId = "\(c.poolKeyHash)"
-            let drepId = "\(c.drep)"
+            let accountId = RegistrationKey.of(c.stakeCredential)
+            let poolId = RegistrationKey.of(c.poolKeyHash)
+            let drepId = RegistrationKey.of(c.drep)
             validateStakeRegistration(
                 id: accountId, certIndex: certIndex, fieldPath: fieldPath,
                 state: state, issues: &issues
@@ -300,7 +300,7 @@ private extension RegistrationRule {
         // ── Stake deregistration ─────────────────────────────────────
         case .stakeDeregistration(let c):
             validateStakeDeregistration(
-                id: "\(c.stakeCredential)", certIndex: certIndex, fieldPath: fieldPath,
+                id: RegistrationKey.of(c.stakeCredential), certIndex: certIndex, fieldPath: fieldPath,
                 state: state, context: context, issues: &issues
             )
 
@@ -308,14 +308,14 @@ private extension RegistrationRule {
             // Conway+ only
             guard era >= .conway else { break }
             validateStakeDeregistration(
-                id: "\(c.stakeCredential)", certIndex: certIndex, fieldPath: fieldPath,
+                id: RegistrationKey.of(c.stakeCredential), certIndex: certIndex, fieldPath: fieldPath,
                 state: state, context: context, issues: &issues
             )
 
         // ── Stake delegation (no registration) ──────────────────────
         case .stakeDelegation(let c):
-            let accountId = "\(c.stakeCredential)"
-            let poolId = "\(c.poolKeyHash)"
+            let accountId = RegistrationKey.of(c.stakeCredential)
+            let poolId = RegistrationKey.of(c.poolKeyHash)
             validateStakeExists(
                 id: accountId, certIndex: certIndex, fieldPath: fieldPath,
                 state: state, issues: &issues
@@ -328,8 +328,8 @@ private extension RegistrationRule {
         case .voteDelegate(let c):
             // Conway+ only
             guard era >= .conway else { break }
-            let accountId = "\(c.stakeCredential)"
-            let drepId = "\(c.drep)"
+            let accountId = RegistrationKey.of(c.stakeCredential)
+            let drepId = RegistrationKey.of(c.drep)
             validateStakeExists(
                 id: accountId, certIndex: certIndex, fieldPath: fieldPath,
                 state: state, issues: &issues
@@ -342,9 +342,9 @@ private extension RegistrationRule {
         case .stakeVoteDelegate(let c):
             // Conway+ only
             guard era >= .conway else { break }
-            let accountId = "\(c.stakeCredential)"
-            let poolId = "\(c.poolKeyHash)"
-            let drepId = "\(c.drep)"
+            let accountId = RegistrationKey.of(c.stakeCredential)
+            let poolId = RegistrationKey.of(c.poolKeyHash)
+            let drepId = RegistrationKey.of(c.drep)
             validateStakeExists(
                 id: accountId, certIndex: certIndex, fieldPath: fieldPath,
                 state: state, issues: &issues
@@ -360,7 +360,7 @@ private extension RegistrationRule {
 
         // ── Pool registration ────────────────────────────────────────
         case .poolRegistration(let c):
-            let poolId = "\(c.poolParams.poolOperator)"
+            let poolId = RegistrationKey.of(c.poolParams.poolOperator)
             let entity = poolId
 
             // Duplicate registration in tx
@@ -397,7 +397,7 @@ private extension RegistrationRule {
 
         // ── Pool retirement ──────────────────────────────────────────
         case .poolRetirement(let c):
-            let poolId = "\(c.poolKeyHash)"
+            let poolId = RegistrationKey.of(c.poolKeyHash)
 
             // Pool must be registered
             if !state.isPoolRegistered(poolId) {
@@ -429,7 +429,7 @@ private extension RegistrationRule {
         case .registerDRep(let c):
             // Conway+ only
             guard era >= .conway else { break }
-            let drepId = "\(c.drepCredential)"
+            let drepId = RegistrationKey.of(c.drepCredential)
 
             // Duplicate in tx
             if let firstIndex = state.drepRegistrationsInTx[drepId],
@@ -457,7 +457,7 @@ private extension RegistrationRule {
         case .unRegisterDRep(let c):
             // Conway+ only
             guard era >= .conway else { break }
-            let drepId = "\(c.drepCredential)"
+            let drepId = RegistrationKey.of(c.drepCredential)
             if !state.isDRepRegistered(drepId) {
                 issues.append(ValidationError(
                     kind: .drepNotRegistered,
@@ -471,7 +471,7 @@ private extension RegistrationRule {
         case .updateDRep(let c):
             // Conway+ only
             guard era >= .conway else { break }
-            let drepId = "\(c.drepCredential)"
+            let drepId = RegistrationKey.of(c.drepCredential)
             if !state.isDRepRegistered(drepId) {
                 issues.append(ValidationError(
                     kind: .drepNotRegistered,
@@ -611,7 +611,7 @@ private extension RegistrationRule {
             ))
         } else {
             // Check non-zero balance
-            if let accountCtx = context.findAccountContext(rewardAddress: id),
+            if let accountCtx = context.accountContexts.first(where: { RegistrationKey.normalize($0.rewardAddress) == id }),
                let balance = accountCtx.balance, balance > 0 {
                 issues.append(ValidationError(
                     kind: .stakeNonZeroAccountBalance,

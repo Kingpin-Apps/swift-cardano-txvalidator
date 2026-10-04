@@ -354,10 +354,11 @@ extension ValidationContext {
             case .registerDRep(let c):               return c.drepCredential
             case .unRegisterDRep(let c):             return c.drepCredential
             case .updateDRep(let c):                 return c.drepCredential
-            case .voteDelegate(let c):               return try c.drep.credential.toDRepCredential()
-            case .stakeVoteDelegate(let c):          return try c.drep.credential.toDRepCredential()
-            case .voteRegisterDelegate(let c):       return try c.drep.credential.toDRepCredential()
-            case .stakeVoteRegisterDelegate(let c):  return try c.drep.credential.toDRepCredential()
+            // Abstain and no-confidence are not registered DReps: nothing to look up.
+            case .voteDelegate(let c):               return try? c.drep.credential.toDRepCredential()
+            case .stakeVoteDelegate(let c):          return try? c.drep.credential.toDRepCredential()
+            case .voteRegisterDelegate(let c):       return try? c.drep.credential.toDRepCredential()
+            case .stakeVoteRegisterDelegate(let c):  return try? c.drep.credential.toDRepCredential()
             default:                                 return nil
         }
     }
