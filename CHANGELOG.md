@@ -1,3 +1,10 @@
+## 0.4.3 (2026-10-04)
+
+### Fix
+
+- **signature**: pre-Conway stake registration needs no witness
+- **registration**: match chain accounts, pools and DReps by credential hash
+
 ## 0.4.2 (2026-09-30)
 
 ### Fix
