@@ -235,9 +235,24 @@ public enum Utils {
     /// `isValid` flag, as the three-element shape earlier eras used — so the
     /// fee does not change with the flag. Shelley to Mary transactions are
     /// sized as written.
+    ///
+    /// This is the ledger's `toCBORForSizeComputation`: a three-element list
+    /// head, then the body, the witness set and the auxiliary data (or null),
+    /// each as the bytes it was written with. The node never re-encodes what
+    /// it was sent, so neither does this: a part keeps its written bytes for
+    /// as long as it is unchanged, and only a changed part is encoded afresh.
     public static func feeRelevantSize(of transaction: Transaction) throws -> Int {
-        let bytes = try transaction.toCBORData()
-        return bytes.first == 0x84 ? bytes.count - 1 : bytes.count
+        let body = try transaction.transactionBody.toCBORData()
+        let witnesses = try transaction.originalWitnessSetCBOR ?? transaction.transactionWitnessSet.toCBORData()
+        let auxiliary: Data
+        if let written = transaction.originalAuxiliaryDataCBOR {
+            auxiliary = written
+        } else if let auxiliaryData = transaction.auxiliaryData {
+            auxiliary = try auxiliaryData.toCBORData()
+        } else {
+            auxiliary = Data([0xF6])
+        }
+        return 1 + body.count + witnesses.count + auxiliary.count
     }
 
     public static func unresolvedSpendingInputs(

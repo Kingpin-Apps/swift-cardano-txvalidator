@@ -164,3 +164,21 @@ struct UtilsTests {
         )
     }
 }
+
+/// The size the ledger charges for: the bytes as written, less the validity flag.
+@Suite("Fee-relevant size")
+struct FeeRelevantSizeTests {
+    @Test("A transaction is sized from its written bytes, without the validity flag, however its parts are encoded")
+    func writtenBytes() throws {
+        // Body with a tagged certificate set, witnesses as a tagged set: as cardano-cli writes them.
+        let hex = "84a400d901028182582077d8cd0fcfff03416252650f726791626582ae6f57c58edda269bdefd274758e0001818258390157330328870a37311d9ca0f064ac870d9a75ae436111952f999248e75a15bb387f2c67792f3143439854a4bb8cefb1259e230550b02f1b2e1a005358fd021a00029e0904d901028183078200581cc6faa2b3aefd8d833901921bb17eaa4655ad05ae7fa18506b9c4215f1a001e8480a100d901028282582000000000000000000000000000000000000000000000000000000000000000015840000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018258200000000000000000000000000000000000000000000000000000000000000002584000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002f5f6"
+        let bytes = Data(hex: hex)
+        let transaction = try Transaction.fromCBOR(data: bytes)
+        #expect(bytes.count == 370)
+        #expect(try Utils.feeRelevantSize(of: transaction) == 369)
+        // Dropping the witnesses re-encodes that part alone; the body keeps its bytes.
+        var unsigned = transaction
+        unsigned.transactionWitnessSet = TransactionWitnessSet()
+        #expect(try Utils.feeRelevantSize(of: unsigned) == 369 - 208 + 1)
+    }
+}
