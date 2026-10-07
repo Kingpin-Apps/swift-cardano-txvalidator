@@ -1,3 +1,13 @@
+## 0.5.0 (2026-10-07)
+
+### Feat
+
+- **fee**: check the fee against the transaction once signed
+
+### Refactor
+
+- **fee**: size a transaction from its parts as written, as the ledger does
+
 ## 0.4.3 (2026-10-04)
 
 ### Fix
