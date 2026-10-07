@@ -328,7 +328,7 @@ public struct SignatureRule: ValidationRule {
 /// Mirrors Rust `collect_certificate_witness` / `add_certificate_credential_witness`.
 /// Only key-credential cases are collected here; script-credential cases are handled
 /// by `WitnessRule` (script witness checks).
-private func collectCertificateKeyHashes(_ cert: Certificate, into set: inout Set<String>) {
+func collectCertificateKeyHashes(_ cert: Certificate, into set: inout Set<String>) {
     /// Helper to extract a key hash hex from a `StakeCredential` if it is key-based.
     func keyHashHex(from cred: StakeCredential) -> String? {
         switch cred.credential {

@@ -94,8 +94,9 @@ Phase-1 errors are produced by the built-in ``Phase1Validator`` rules and any cu
 
 - **Rule:** ``FeeRule``
 - **Field path:** `transaction_body.fee`
-- **Cause:** The declared fee is below the protocol minimum, computed as `txFeeFixed + txFeePerByte × tx_size_bytes`.
-- **Fix:** Increase the fee to at least the computed minimum. Most transaction builders do this automatically; check that `txFeePerByte` and `txFeeFixed` are sourced from current protocol parameters.
+- **Ledger:** `FeeTooSmallUTxO`
+- **Cause:** The declared fee is below the protocol minimum, computed as `txFeeFixed + txFeePerByte × tx_size_bytes` (plus script and reference-script fees). `tx_size_bytes` is the size the ledger charges for: the transaction as written, without its one-byte validity flag. A transaction still missing signatures is sized as it will be once signed, with a vkey witness for every key that must sign, written as a set tagged 258 as the Conway ledger writes it. So an unsigned transaction whose fee covers its unsigned bytes but not its signed ones fails here, as it will at the node.
+- **Fix:** Increase the fee to at least the computed minimum. Most transaction builders do this automatically; check that `txFeePerByte` and `txFeeFixed` are sourced from current protocol parameters. When the shortfall comes from signatures still to be added, rebuild the transaction: signing cannot fix it, since the fee is part of what is signed.
 
 #### `feeTooBig` *(warning)*
 

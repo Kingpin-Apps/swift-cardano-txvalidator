@@ -1,7 +1,12 @@
 import Foundation
 import SwiftCardanoCore
 
-/// Checks that the transaction fee is at least the ledger-computed minimum fee.
+/// Checks that the transaction fee is at least the ledger-computed minimum fee
+/// (the ledger's `FeeTooSmallUTxO`).
+///
+/// The size is the transaction's once signed (``SignedSize``): a transaction
+/// still missing signatures is sized with a witness for each key that must
+/// sign, since the node charges for them.
 ///
 /// Minimum fee formula (Babbage / Conway):
 /// ```
@@ -25,15 +30,18 @@ public struct FeeRule: ValidationRule {
         let witnesses = transaction.transactionWitnessSet
         let declaredFee = body.fee   // Coin = UInt64
 
-        // The size the ledger charges for — see `Utils.feeRelevantSize`.
+        // The size the ledger charges for once the transaction is signed —
+        // see `SignedSize`. A signed transaction is sized as written.
         // If serialisation fails, we skip the size-based check gracefully.
-        guard let txSize = try? Utils.feeRelevantSize(of: transaction) else {
+        guard let signedSize = try? SignedSize.of(transaction, context: context) else {
             return [ValidationError(
                 kind: .unknown,
                 fieldPath: "transaction_body.fee",
                 message: "Could not serialise transaction to compute minimum fee — fee check skipped."
             )]
         }
+
+        let txSize = signedSize.bytes
 
         // 1. Size-based fee component
         let txSizeFee = UInt64(protocolParams.txFeePerByte) * UInt64(txSize)
@@ -106,14 +114,19 @@ public struct FeeRule: ValidationRule {
         var issues: [ValidationError] = []
 
         if declaredFee < minFee {
+            let unsigned = signedSize.missingWitnesses
+            let counting = unsigned == 0 ? "" : ", counting the \(unsigned) vkey witness\(unsigned == 1 ? "" : "es") still to be added"
             issues.append(ValidationError(
                 kind: .feeTooSmall,
                 fieldPath: "transaction_body.fee",
                 message: "Fee \(declaredFee) lovelace is less than the minimum \(minFee) lovelace "
                     + "(txFeePerByte=\(protocolParams.txFeePerByte), "
                     + "txFeeFixed=\(protocolParams.txFeeFixed), "
-                    + "txSize=\(txSize) bytes).",
-                hint: "Increase the fee to at least \(minFee) lovelace."
+                    + "txSize=\(txSize) bytes\(counting)). The node rejects it with FeeTooSmallUTxO.",
+                hint: unsigned == 0
+                    ? "Increase the fee to at least \(minFee) lovelace."
+                    : "Rebuild the transaction with a fee of at least \(minFee) lovelace. Signing cannot fix "
+                        + "it: the signatures are part of what the fee pays for, and the fee is part of what is signed."
             ))
         } else if declaredFee > minFee * 110 / 100 {
             // Warn if fee is more than 10% over minimum (likely a mistake but not invalid).
