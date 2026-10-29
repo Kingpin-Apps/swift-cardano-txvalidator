@@ -21,10 +21,12 @@ public enum Utils {
     /// scriptDataHash = Blake2b256(redeemers_cbor || datums_cbor || language_views_cbor)
     /// ```
     ///
-    /// - `redeemers_cbor`: canonical CBOR of the redeemers (map or list encoding);
+    /// - `redeemers_cbor`: CBOR of the redeemers (map or list encoding), as
+    ///   written when the witness set was decoded;
     ///   `0xA0` (the empty map) when the witness set has no redeemers field —
     ///   this part is always present
-    /// - `datums_cbor`: CBOR set (tag 258) of PlutusDatas from the witness set;
+    /// - `datums_cbor`: CBOR of the witness set's PlutusDatas, as written when
+    ///   the witness set was decoded;
     ///   contributes *nothing* when there are no datums
     /// - `language_views_cbor`: cost models for only the Plutus versions actually used,
     ///   `0xA0` (empty map) if no redeemers — a Plutus script the transaction
@@ -61,38 +63,14 @@ public enum Utils {
                 assumingUnresolvedInputsUseReferenceScripts
         )
 
-        let datums: ListOrNonEmptyOrderedSet<Datum>?
-        switch witnessSet.plutusData {
-        case .list(let list):
-            datums = .list(list.map({ .plutusData($0) }))
-        case .indefiniteList(let list):
-            datums = .indefiniteList(
-                IndefiniteList(
-                    list.map({ .plutusData($0) })
-                )
-            )
-        case .nonEmptyOrderedSet(let set):
-            datums =
-                .nonEmptyOrderedSet(
-                    NonEmptyOrderedSet(
-                        set.elementsOrdered.map({ .plutusData($0) })
-                    )
-                )
-        case .indefiniteNonEmptyOrderedSet(let list):
-            // `#6.258` around an indefinite-length array: keep the form so the
-            // datums re-encode to the bytes `script_data_hash` was built over.
-            datums = .indefiniteNonEmptyOrderedSet(
-                IndefiniteList(
-                    list.map({ .plutusData($0) })
-                )
-            )
-        case nil:
-            datums = nil
-        }
-
+        // Hash the redeemers and datums as written: the ledger never
+        // re-encodes them, so a decoded witness set whose parts were not
+        // written canonically (an indefinite list, a wider integer header)
+        // only matches over its original bytes.
         return try scriptDataHash(
-            redeemers: witnessSet.redeemers,
-            datums: datums,
+            redeemerBytes: witnessSet.redeemersCBOR(),
+            datumBytes: witnessSet.plutusDataCBOR(),
+            redeemersIsEmpty: isEmpty(witnessSet.redeemers),
             costModels: CostModels(costModels)
         )
     }
@@ -110,16 +88,32 @@ public enum Utils {
         costModels: CostModels? = nil
     ) throws -> ScriptDataHash {
         
-        let redeemersIsEmpty: Bool
+        return try scriptDataHash(
+            redeemerBytes: redeemers?.toCBORData(),
+            datumBytes: datums?.toCBORData(),
+            redeemersIsEmpty: isEmpty(redeemers),
+            costModels: costModels
+        )
+    }
+
+    private static func isEmpty(_ redeemers: Redeemers?) -> Bool {
         switch redeemers {
             case .list(let list):
-                redeemersIsEmpty = list.isEmpty
+                return list.isEmpty
             case .map(let map):
-                redeemersIsEmpty = map.count == 0
+                return map.count == 0
             case .none:
-                redeemersIsEmpty = true
+                return true
         }
-        
+    }
+
+    /// Hash the encoded parts of the `script_data_hash` preimage.
+    private static func scriptDataHash(
+        redeemerBytes: Data?,
+        datumBytes: Data?,
+        redeemersIsEmpty: Bool,
+        costModels: CostModels?
+    ) throws -> ScriptDataHash {
         let costModelsBytes: Data
         if redeemersIsEmpty {
             costModelsBytes = try CBOREncoder().encode(CBOR.map([:]))
@@ -130,17 +124,16 @@ public enum Utils {
             costModelsBytes = try costModels.toCBORData()
         }
         
-        let datumBytes = try datums?.toCBORData() ?? Data()
         // The ledger always hashes a redeemers value. A witness set that omits
         // the field decodes to the empty redeemer map, which still contributes
         // its `0xA0` — contributing nothing instead shifts the whole preimage
         // and makes every datum-carrying, redeemer-free transaction (one that
         // only *sends* to a script address) look like a hash mismatch.
-        let redeemerBytes = try (redeemers ?? .map(RedeemerMap())).toCBORData()
+        let redeemerBytes = try redeemerBytes ?? Redeemers.map(RedeemerMap()).toCBORData()
         
         return ScriptDataHash(
             payload: try SwiftNaCl.Hash().blake2b(
-                data: redeemerBytes + datumBytes + costModelsBytes,
+                data: redeemerBytes + (datumBytes ?? Data()) + costModelsBytes,
                 digestSize: SCRIPT_DATA_HASH_SIZE,
                 encoder: RawEncoder.self
             )

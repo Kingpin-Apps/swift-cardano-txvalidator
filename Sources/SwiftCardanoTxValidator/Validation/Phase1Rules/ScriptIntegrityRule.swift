@@ -67,8 +67,9 @@ public struct ScriptIntegrityRule: ValidationRule {
         }
 
         // Recompute the hash.
-        // Utils.scriptDataHash performs the Blake2b-256 hash over the canonical
-        // CBOR encoding of (redeemers || datums || languageViews).
+        // Utils.scriptDataHash performs the Blake2b-256 hash over
+        // (redeemers || datums || languageViews), taking the redeemers and
+        // datums as written in the transaction.
         // If it throws (e.g. Blake2b not yet available), we fall back to a warning.
         do {
             

@@ -1,5 +1,5 @@
 {
-  "originHash" : "1582545c58dcb5fa313255ffe526077371f02262916e478b4ed392f5f7f9c1d3",
+  "originHash" : "378d3230dd54f34e1ec1cbace1cdf5a8494250cd6dd5f190330c0b3f09ea8eb2",
   "pins" : [
     {
       "identity" : "base32",
@@ -132,8 +132,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cardano-core.git",
       "state" : {
-        "revision" : "eba24176593b974033407d6a65195b323329c52c",
-        "version" : "0.8.2"
+        "revision" : "ea770b785f1f22a321ed46d9e99e2539494284d8",
+        "version" : "0.9.0"
       }
     },
     {
@@ -159,8 +159,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cbor-codable.git",
       "state" : {
-        "revision" : "98fc0f0138329593237cbbc2991de1da17d41b55",
-        "version" : "0.3.4"
+        "revision" : "052ed12da53c4723a81ba15c12cb2c51e6fe46ba",
+        "version" : "0.3.5"
       }
     },
     {

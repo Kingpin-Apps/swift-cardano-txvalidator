@@ -95,6 +95,42 @@ struct UtilsTests {
         #expect(first == second)
     }
 
+    @Test("scriptDataHash hashes decoded redeemers as written")
+    func scriptDataHashKeepsRedeemersAsWritten() throws {
+        let params = try loadProtocolParams()
+        // Redeemers as an indefinite list, with the index written as `18 01`.
+        let witnessSet = try TransactionWitnessSet.fromCBOR(
+            data: "a1059f8400001801820000ff".hexStringToData
+        )
+
+        let hash = try Utils.scriptDataHash(witnessSet: witnessSet, protocolParams: params)
+
+        // No scripts in the witness set, so the language views are empty.
+        let expected = try Utils.blake2b256("9f8400001801820000ff".hexStringToData + Data([0xA0]))
+        #expect(hash.payload == expected)
+        let reencoded = try Utils.scriptDataHash(
+            redeemers: witnessSet.redeemers,
+            costModels: CostModels([Int: [Int64]]())
+        )
+        #expect(hash != reencoded)
+    }
+
+    @Test("scriptDataHash hashes decoded datums as written")
+    func scriptDataHashKeepsDatumsAsWritten() throws {
+        let params = try loadProtocolParams()
+        // Datums as a tag-258 set around an indefinite array, with no redeemers.
+        let witnessSet = try TransactionWitnessSet.fromCBOR(
+            data: "a104d901029f1801ff".hexStringToData
+        )
+
+        let hash = try Utils.scriptDataHash(witnessSet: witnessSet, protocolParams: params)
+
+        let expected = try Utils.blake2b256(
+            Data([0xA0]) + "d901029f1801ff".hexStringToData + Data([0xA0])
+        )
+        #expect(hash.payload == expected)
+    }
+
     @Test("scriptDataHash changes when datum changes")
     func scriptDataHashChangesWhenDatumChanges() throws {
         let params = try loadProtocolParams()
