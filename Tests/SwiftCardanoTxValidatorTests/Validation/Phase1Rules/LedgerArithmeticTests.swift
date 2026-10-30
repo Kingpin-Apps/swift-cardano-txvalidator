@@ -84,6 +84,33 @@ struct LedgerArithmeticTests {
             transaction: Transaction(transactionBody: body, transactionWitnessSet: witnesses),
             context: context, protocolParams: try loadProtocolParams())
         #expect(!issues.contains { $0.kind == .insufficientCollateral })
+        #expect(issues.contains { $0.kind == .cannotCheckCollateral && $0.isWarning })
+    }
+
+    @Test("Each failed chain lookup is reported, and the context builder records them")
+    func chainLookupFailures() async throws {
+        let issues = try ChainLookupRule().validate(
+            transaction: Transaction(
+                transactionBody: TransactionBody(inputs: .list([input(0xA1)]), outputs: [], fee: 0),
+                transactionWitnessSet: TransactionWitnessSet()),
+            context: ValidationContext(lookupFailures: ["stake pool pool1x: timed out"]),
+            protocolParams: try loadProtocolParams())
+        #expect(issues.count == 1)
+        #expect(issues.first?.kind == .chainLookupFailed && issues.first?.isWarning == true)
+
+        // The mock's stake address lookup throws.
+        let credential = StakeCredential(
+            credential: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0x11, count: 28))))
+        let body = TransactionBody(
+            inputs: .list([input(0xA1)]),
+            outputs: [TransactionOutput(address: try address(1), amount: Value(coin: 2_000_000))],
+            fee: 200_000,
+            certificates: .list([.register(try Register(stakeCredential: credential, coin: 2_000_000))]))
+        let context = try await ValidationContext.from(
+            transaction: Transaction(transactionBody: body, transactionWitnessSet: TransactionWitnessSet()),
+            chainContext: MockChainContext(protocolParams: try loadProtocolParams()))
+        #expect(context.lookupFailures.count == 1)
+        #expect(context.lookupFailures.first?.hasPrefix("stake address stake_test1") == true)
     }
 
     // MARK: - Balance
@@ -125,6 +152,46 @@ struct LedgerArithmeticTests {
             UTxO(input: input(0xA1), output: TransactionOutput(address: try address(1), amount: Value(coin: 1_000_000))),
         ])
         #expect(!issues.contains { $0.kind == .valueNotConserved })
+        #expect(issues.contains { $0.kind == .cannotCheckBalance && $0.isWarning })
+    }
+
+    @Test("A legacy deregistration refunds the deposit that was paid, found by its credential")
+    func legacyRefundIsThePaidDeposit() throws {
+        let credential = StakeCredential(
+            credential: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0x11, count: 28))))
+        let rewardAddress = try Address(
+            paymentPart: nil,
+            stakingPart: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0x11, count: 28))),
+            network: .testnet
+        ).toBech32()
+        let params = try loadProtocolParams()
+        #expect(params.stakeAddressDeposit == 2_000_000)
+        let body = TransactionBody(
+            inputs: .list([input(0xA1)]),
+            outputs: [TransactionOutput(address: try address(1), amount: Value(coin: 2_000_000))],
+            fee: 200_000,
+            certificates: .list([.stakeDeregistration(try StakeDeregistration(stakeCredential: credential))]))
+        // 1 ada was paid when it registered, so 1 ada comes back.
+        let context = ValidationContext(
+            resolvedInputs: [UTxO(input: input(0xA1), output: TransactionOutput(
+                address: try address(1), amount: Value(coin: 1_200_000)))],
+            accountContexts: [AccountInputContext(rewardAddress: rewardAddress, isRegistered: true, payedDeposit: 1_000_000)])
+        let issues = try BalanceRule().validate(
+            transaction: Transaction(transactionBody: body, transactionWitnessSet: TransactionWitnessSet()),
+            context: context, protocolParams: params)
+        #expect(!issues.contains { $0.kind == .valueNotConserved })
+        #expect(issues.contains { $0.kind == .cannotCheckStakeDeregistrationRefund && $0.isWarning })
+
+        // A Conway deregistration stating the wrong refund is found the same way.
+        let unregister = TransactionBody(
+            inputs: .list([input(0xA1)]),
+            outputs: [TransactionOutput(address: try address(1), amount: Value(coin: 2_000_000))],
+            fee: 200_000,
+            certificates: .list([.unregister(try Unregister(stakeCredential: credential, coin: 2_000_000))]))
+        let mismatch = try BalanceRule().validate(
+            transaction: Transaction(transactionBody: unregister, transactionWitnessSet: TransactionWitnessSet()),
+            context: context, protocolParams: params)
+        #expect(mismatch.contains { $0.kind == .depositMismatch && $0.message.contains("original deposit 1000000") })
     }
 
     @Test("A pool registered twice in one transaction takes its deposit once")

@@ -58,6 +58,11 @@ public struct ValidationContext: Sendable {
     /// ``SwiftCardanoCore/Transaction/possibleEras``.
     public let era: Era?
 
+    /// Chain-state lookups that failed while this context was built, each as
+    /// what was looked up and why it failed. A check that needed one may
+    /// report the thing as absent; ``ChainLookupRule`` reports each failure.
+    public let lookupFailures: [String]
+
     public init(
         resolvedInputs: [UTxO] = [],
         spentInputRefs: [TransactionInput] = [],
@@ -72,7 +77,8 @@ public struct ValidationContext: Sendable {
         potentialCommitteeMembers: [CommitteeInputContext] = [],
         treasuryValue: UInt64? = nil,
         currentEpoch: UInt64? = nil,
-        era: Era? = nil
+        era: Era? = nil,
+        lookupFailures: [String] = []
     ) {
         self.resolvedInputs = resolvedInputs
         self.spentInputRefs = spentInputRefs
@@ -88,6 +94,7 @@ public struct ValidationContext: Sendable {
         self.treasuryValue = treasuryValue
         self.currentEpoch = currentEpoch
         self.era = era
+        self.lookupFailures = lookupFailures
     }
 
     /// This context with `era` in place of its era.
@@ -106,7 +113,8 @@ public struct ValidationContext: Sendable {
             potentialCommitteeMembers: potentialCommitteeMembers,
             treasuryValue: treasuryValue,
             currentEpoch: currentEpoch,
-            era: era
+            era: era,
+            lookupFailures: lookupFailures
         )
     }
 
@@ -123,6 +131,13 @@ public struct ValidationContext: Sendable {
     }
 
     /// The bytes of a reward address written in hex or bech32.
+    /// Look up the account a stake credential controls: the reward address
+    /// whose staking part is that credential, in any network or form.
+    public func findAccountContext(stakeCredential: StakeCredential) -> AccountInputContext? {
+        let key = RegistrationKey.of(stakeCredential)
+        return accountContexts.first { RegistrationKey.normalize($0.rewardAddress) == key }
+    }
+
     static func rewardAddressBytes(_ address: String) -> Data? {
         if !address.isEmpty, address.count.isMultiple(of: 2), address.allSatisfy(\.isHexDigit) {
             return address.hexStringToData

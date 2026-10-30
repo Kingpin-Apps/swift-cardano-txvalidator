@@ -37,6 +37,19 @@ extension ValidationContext {
         let body = transaction.transactionBody
         let network = chainContext.networkId
 
+        // A lookup that throws is recorded rather than dropped: the chain
+        // backends report an absent account, pool or action and a failed
+        // request alike, so a check that finds nothing is not the only word.
+        var lookupFailures: [String] = []
+        func lookup<T>(_ what: String, _ fetch: () async throws -> T) async -> T? {
+            do {
+                return try await fetch()
+            } catch {
+                lookupFailures.append("\(what): \(error)")
+                return nil
+            }
+        }
+
         // MARK: - Resolved Inputs
 
         // Collect de-duplicated input references from NecessaryData, then resolve each UTxO.
@@ -80,7 +93,7 @@ extension ValidationContext {
         func fetchAccountContext(address: Address) async {
             guard let bech32 = try? address.toBech32(),
                   seenAccounts.insert(bech32).inserted else { return }
-            guard let infos = try? await chainContext.stakeAddressInfo(address: address),
+            guard let infos = await lookup("stake address \(bech32)", { try await chainContext.stakeAddressInfo(address: address) }),
                   let info = infos.first else { return }
             accountContexts.append(AccountInputContext(
                 rewardAddress: info.address,
@@ -130,7 +143,7 @@ extension ValidationContext {
                 guard seenPools.insert(poolHex).inserted else { continue }
                 let poolOp = PoolOperator(poolKeyHash: poolKeyHash)
                 guard let bech32 = try? poolOp.toBech32() else { continue }
-                guard let info = try? await chainContext.stakePoolInfo(poolId: bech32) else { continue }
+                guard let info = await lookup("stake pool \(bech32)", { try await chainContext.stakePoolInfo(poolId: bech32) }) else { continue }
                 let (isRegistered, retirementEpoch): (Bool, UInt64?) = {
                     switch info.status {
                         case .registered:        return (true, nil)
@@ -165,7 +178,7 @@ extension ValidationContext {
                     credential:  try DRepType(from: _drepCredential)
                 )
                 
-                guard let info = try? await chainContext.drepInfo(drep: drep) else {
+                guard let info = await lookup("DRep \(drep)", { try await chainContext.drepInfo(drep: drep) }) else {
                     continue
                 }
                 
@@ -192,7 +205,7 @@ extension ValidationContext {
                 let committeeHex = _committeeCredential.credential.payload.toHex
                 guard seenCommittee.insert(committeeHex).inserted else { continue }
                 
-                guard let memberInfo = try? await chainContext.committeeMemberInfo(cold: _committeeCredential) else {
+                guard let memberInfo = await lookup("committee member \(_committeeCredential)", { try await chainContext.committeeMemberInfo(cold: _committeeCredential) }) else {
                     continue
                 }
 
@@ -215,7 +228,7 @@ extension ValidationContext {
                 guard let key = try? govActionID.id(),
                       seenGovActions.insert(key).inserted else { continue }
                 
-                guard let info = try? await chainContext.govActionInfo(govActionID: govActionID) else { continue }
+                guard let info = await lookup("governance action \(key)", { try await chainContext.govActionInfo(govActionID: govActionID) }) else { continue }
                 
                 govActionContexts.append(
                     GovActionInputContext(
@@ -253,7 +266,7 @@ extension ValidationContext {
                             let committeeHex = coldCredential.credential.payload.toHex
                             guard seenCommittee.insert(committeeHex).inserted else { continue }
                             
-                            guard let memberInfo = try? await chainContext.committeeMemberInfo(cold: coldCredential) else {
+                            guard let memberInfo = await lookup("committee member \(coldCredential)", { try await chainContext.committeeMemberInfo(cold: coldCredential) }) else {
                                 continue
                             }
 
@@ -283,7 +296,7 @@ extension ValidationContext {
                 guard let key = try? _prevAction.id(),
                       seenGovActions.insert(key).inserted else { continue }
                 
-                guard let info = try? await chainContext.govActionInfo(govActionID: _prevAction) else { continue }
+                guard let info = await lookup("governance action \(key)", { try await chainContext.govActionInfo(govActionID: _prevAction) }) else { continue }
                 
                 lastEnactedGovAction.append(GovActionInputContext(
                     transactionId: _prevAction.transactionID.payload.toHex,
@@ -298,7 +311,7 @@ extension ValidationContext {
         
         var treasuryValue: UInt64? = nil
         if body.currentTreasuryAmount != nil {
-            treasuryValue = try? await chainContext.treasury()
+            treasuryValue = await lookup("treasury", { try await chainContext.treasury() })
         }
 
         return ValidationContext(
@@ -315,7 +328,8 @@ extension ValidationContext {
             potentialCommitteeMembers: potentialCommitteeMembers,
             treasuryValue: treasuryValue,
             currentEpoch: UInt64(max(0, epoch)),
-            era: era
+            era: era,
+            lookupFailures: lookupFailures
         )
     }
 

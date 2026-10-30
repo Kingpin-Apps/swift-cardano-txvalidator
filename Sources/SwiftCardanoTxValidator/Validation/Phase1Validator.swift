@@ -95,6 +95,7 @@ public struct Phase1Validator: Sendable {
             RegistrationRule(),
             GovernanceProposalRule(),
             VotingRule(),
+            ChainLookupRule(),
         ]
     }
 }

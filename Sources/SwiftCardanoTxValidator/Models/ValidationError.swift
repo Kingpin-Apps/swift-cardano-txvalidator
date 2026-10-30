@@ -70,6 +70,15 @@ public struct ValidationError: Sendable, Codable, Equatable {
         case cannotCheckUnusedWitnesses  // warning
         case cannotCheckStakeDeregistrationRefund  // warning
         case cannotCheckDRepDeregistrationRefund  // warning
+        /// warning: value conservation was not checked, because a spending
+        /// input could not be resolved (reported as ``badInput``).
+        case cannotCheckBalance  // warning
+        /// warning: the net collateral was not checked, because a collateral
+        /// input could not be resolved.
+        case cannotCheckCollateral  // warning
+        /// warning: a chain-state lookup failed, so a check that depends on
+        /// it may report the thing as absent when it could not be read.
+        case chainLookupFailed  // warning
         // Registration errors (Batch 6)
         case stakeAlreadyRegistered
         case stakeNotRegistered
@@ -166,6 +175,9 @@ public struct ValidationError: Sendable, Codable, Equatable {
                 return "Cannot Check Stake Deregistration Refund"
             case .cannotCheckDRepDeregistrationRefund:
                 return "Cannot Check DRep Deregistration Refund"
+            case .cannotCheckBalance: return "Balance Not Checked"
+            case .cannotCheckCollateral: return "Collateral Not Checked"
+            case .chainLookupFailed: return "Chain Lookup Failed"
             case .stakeAlreadyRegistered: return "Stake Already Registered"
             case .stakeNotRegistered: return "Stake Not Registered"
             case .stakeNonZeroAccountBalance: return "Stake Non-Zero Account Balance"

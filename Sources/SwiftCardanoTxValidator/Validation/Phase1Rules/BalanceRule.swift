@@ -209,8 +209,7 @@ public struct BalanceRule: ValidationRule {
             for (i, cert) in certs.asList.enumerated() {
                 switch cert {
                 case .unregister(let u):
-                    let credStr = "\(u.stakeCredential)"
-                    if let accountCtx = context.findAccountContext(rewardAddress: credStr) {
+                    if let accountCtx = context.findAccountContext(stakeCredential: u.stakeCredential) {
                         if let payedDeposit = accountCtx.payedDeposit {
                             if u.coin != payedDeposit {
                                 issues.append(ValidationError(
@@ -240,23 +239,18 @@ public struct BalanceRule: ValidationRule {
                         ))
                     }
                 case .stakeDeregistration(let d):
-                    let credStr = "\(d.stakeCredential)"
-                    if let accountCtx = context.findAccountContext(rewardAddress: credStr) {
-                        if let payedDeposit = accountCtx.payedDeposit {
-                            let expectedDeposit = Int(payedDeposit)
-                            if protocolParams.stakeAddressDeposit != expectedDeposit {
-                                // The Shelley-era cert uses protocol param as refund;
-                                // if the original deposit differs, warn.
-                                issues.append(ValidationError(
-                                    kind: .cannotCheckStakeDeregistrationRefund,
-                                    fieldPath: "transaction_body.certificates[\(i)]",
-                                    message: "Shelley-era stake deregistration uses protocol param "
-                                        + "(\(protocolParams.stakeAddressDeposit)) as refund, "
-                                        + "but original deposit was \(payedDeposit) lovelace.",
-                                    isWarning: true
-                                ))
-                            }
-                        }
+                    if let accountCtx = context.findAccountContext(stakeCredential: d.stakeCredential),
+                       let payedDeposit = accountCtx.payedDeposit,
+                       payedDeposit != protocolParams.stakeAddressDeposit {
+                        // The ledger refunds the deposit that was paid, which
+                        // a wallet working from today's parameter gets wrong.
+                        issues.append(ValidationError(
+                            kind: .cannotCheckStakeDeregistrationRefund,
+                            fieldPath: "transaction_body.certificates[\(i)]",
+                            message: "This deregistration refunds the \(payedDeposit) lovelace deposit that was "
+                                + "paid, not today's stakeAddressDeposit of \(protocolParams.stakeAddressDeposit).",
+                            isWarning: true
+                        ))
                     }
                 default:
                     break
@@ -347,6 +341,12 @@ public struct BalanceRule: ValidationRule {
         for input in body.inputs.asArray {
             let key = "\(input.transactionId)#\(input.index)"
             guard let resolved = utxoMap[key] else {
+                issues.append(ValidationError(
+                    kind: .cannotCheckBalance,
+                    fieldPath: "transaction_body.inputs",
+                    message: "Value conservation was not checked: input \(key) could not be resolved.",
+                    isWarning: true
+                ))
                 return issues
             }
             inputLovelace += resolved.amount.coin
@@ -371,8 +371,11 @@ public struct BalanceRule: ValidationRule {
                 switch cert {
                     case .stakeRegistration:
                         netDepositLovelace += BigInt(protocolParams.stakeAddressDeposit)
-                    case .stakeDeregistration:
-                        netDepositLovelace -= BigInt(protocolParams.stakeAddressDeposit)
+                    case .stakeDeregistration(let d):
+                        // The ledger refunds the deposit that was paid, when
+                        // the chain state says what it was.
+                        let paid = context.findAccountContext(stakeCredential: d.stakeCredential)?.payedDeposit
+                        netDepositLovelace -= BigInt(paid ?? protocolParams.stakeAddressDeposit)
                     case .register(let r):
                         netDepositLovelace += BigInt(r.coin)
                     case .unregister(let u):

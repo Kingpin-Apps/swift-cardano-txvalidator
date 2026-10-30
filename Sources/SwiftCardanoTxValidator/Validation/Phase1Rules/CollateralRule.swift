@@ -135,62 +135,67 @@ public struct CollateralRule: ValidationRule {
             // UTxOs — leaves the net collateral unknown, so it is not checked
             // rather than reported short. TransactionLimitsRule reports it.
             let resolvedCollateral = inputs.asList.compactMap { resolvedMap["\($0.transactionId)#\($0.index)"] }
-            guard resolvedCollateral.count == inputs.asList.count else {
-                return issues
-            }
-
-            var totalCollateralAda = resolvedCollateral.reduce(BigInt(0)) { $0 + $1.amount.coin }
-            // Subtract collateral return
-            if let ret = body.collateralReturn {
-                totalCollateralAda -= ret.amount.coin
-            }
-
-            // Check declared totalCollateral field matches actual
-            if let declared = body.totalCollateral, BigInt(declared) != totalCollateralAda {
+            if resolvedCollateral.count != inputs.asList.count {
                 issues.append(ValidationError(
-                    kind: .incorrectTotalCollateral,
-                    fieldPath: "transaction_body.total_collateral",
-                    message: "Declared total_collateral \(declared) lovelace does not match "
-                        + "computed net collateral \(totalCollateralAda) lovelace.",
-                    hint: "Set total_collateral to the exact difference between collateral "
-                        + "inputs and the collateral return output."
-                ))
-            }
-
-            if totalCollateralAda * 100 < feeShare {
-                issues.append(ValidationError(
-                    kind: .insufficientCollateral,
+                    kind: .cannotCheckCollateral,
                     fieldPath: "transaction_body.collateral",
-                    message: "Net collateral \(totalCollateralAda) lovelace is less than the "
-                        + "minimum required \(minCollateral) lovelace "
-                        + "(fee=\(body.fee), collateralPercentage=\(protocolParams.collateralPercentage)%).",
-                    hint: "Increase the collateral inputs so their net value is at least \(minCollateral) lovelace."
+                    message: "Net collateral was not checked: a collateral input could not be resolved.",
+                    isWarning: true
                 ))
-            }
-
-            // Net collateral must be ADA-only.
-            // Sum the MultiAsset across all collateral inputs, then subtract the return.
-            var netMultiAsset = MultiAsset([:])
-            for input in inputs.asList {
-                let key = "\(input.transactionId)#\(input.index)"
-                if let resolved = resolvedMap[key] {
-                    netMultiAsset = netMultiAsset + resolved.amount.multiAsset
+            } else {
+                var totalCollateralAda = resolvedCollateral.reduce(BigInt(0)) { $0 + $1.amount.coin }
+                // Subtract collateral return
+                if let ret = body.collateralReturn {
+                    totalCollateralAda -= ret.amount.coin
                 }
-            }
-            if let ret = body.collateralReturn {
-                netMultiAsset = netMultiAsset - ret.amount.multiAsset
-            }
-            // After normalize(), any remaining entries mean non-ADA in the net.
-            let normalised = netMultiAsset.normalize()
-            if !normalised.data.isEmpty {
-                issues.append(ValidationError(
-                    kind: .collateralContainsNonAdaAssets,
-                    fieldPath: "transaction_body.collateral",
-                    message: "Net collateral (inputs minus return) contains non-ADA assets. "
-                        + "The net collateral value must be ADA-only.",
-                    hint: "Add or adjust the collateral return to sweep all native tokens, "
-                        + "leaving only ADA as net collateral."
-                ))
+
+                // Check declared totalCollateral field matches actual
+                if let declared = body.totalCollateral, BigInt(declared) != totalCollateralAda {
+                    issues.append(ValidationError(
+                        kind: .incorrectTotalCollateral,
+                        fieldPath: "transaction_body.total_collateral",
+                        message: "Declared total_collateral \(declared) lovelace does not match "
+                            + "computed net collateral \(totalCollateralAda) lovelace.",
+                        hint: "Set total_collateral to the exact difference between collateral "
+                            + "inputs and the collateral return output."
+                    ))
+                }
+
+                if totalCollateralAda * 100 < feeShare {
+                    issues.append(ValidationError(
+                        kind: .insufficientCollateral,
+                        fieldPath: "transaction_body.collateral",
+                        message: "Net collateral \(totalCollateralAda) lovelace is less than the "
+                            + "minimum required \(minCollateral) lovelace "
+                            + "(fee=\(body.fee), collateralPercentage=\(protocolParams.collateralPercentage)%).",
+                        hint: "Increase the collateral inputs so their net value is at least \(minCollateral) lovelace."
+                    ))
+                }
+
+                // Net collateral must be ADA-only.
+                // Sum the MultiAsset across all collateral inputs, then subtract the return.
+                var netMultiAsset = MultiAsset([:])
+                for input in inputs.asList {
+                    let key = "\(input.transactionId)#\(input.index)"
+                    if let resolved = resolvedMap[key] {
+                        netMultiAsset = netMultiAsset + resolved.amount.multiAsset
+                    }
+                }
+                if let ret = body.collateralReturn {
+                    netMultiAsset = netMultiAsset - ret.amount.multiAsset
+                }
+                // After normalize(), any remaining entries mean non-ADA in the net.
+                let normalised = netMultiAsset.normalize()
+                if !normalised.data.isEmpty {
+                    issues.append(ValidationError(
+                        kind: .collateralContainsNonAdaAssets,
+                        fieldPath: "transaction_body.collateral",
+                        message: "Net collateral (inputs minus return) contains non-ADA assets. "
+                            + "The net collateral value must be ADA-only.",
+                        hint: "Add or adjust the collateral return to sweep all native tokens, "
+                            + "leaving only ADA as net collateral."
+                    ))
+                }
             }
         }
 
