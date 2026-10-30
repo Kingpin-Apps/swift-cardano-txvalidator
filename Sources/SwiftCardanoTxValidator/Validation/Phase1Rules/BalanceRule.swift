@@ -1,3 +1,4 @@
+import BigInt
 import Foundation
 import SwiftCardanoCore
 
@@ -339,75 +340,75 @@ public struct BalanceRule: ValidationRule {
             }
         )
 
-        // Sum of spending input values — ListOrOrderedSet requires .asArray for iteration
-        var inputLovelace: Int64 = 0
+        // Sum of spending input values. An input that cannot be resolved
+        // leaves the sum unknown — TransactionLimitsRule reports it as a bad
+        // input — so the balance is not checked rather than misreported.
+        var inputLovelace = BigInt(0)
         for input in body.inputs.asArray {
             let key = "\(input.transactionId)#\(input.index)"
             guard let resolved = utxoMap[key] else {
-                continue
+                return issues
             }
             inputLovelace += resolved.amount.coin
         }
 
-        // Sum of withdrawals (add to input side) — Coin = UInt64, reduce then convert to Int64
-        let withdrawalLovelace: Int64
-        if let withdrawals = body.withdrawals {
-            let total: Coin = withdrawals.data.values.reduce(0 as Coin) { acc, coin in acc + coin }
-            withdrawalLovelace = Int64(total)
-        } else {
-            withdrawalLovelace = 0
-        }
+        // Sum of withdrawals (add to input side)
+        let withdrawalLovelace = body.withdrawals?.data.values.reduce(BigInt(0)) { $0 + BigInt($1) } ?? 0
 
         // Sum of output values
-        let outputLovelace = body.outputs.reduce(Int64(0)) { $0 + $1.amount.coin }
+        let outputLovelace = body.outputs.reduce(BigInt(0)) { $0 + $1.amount.coin }
 
-        // Fee — Coin = UInt64, safe to Int64 on 64-bit platforms
-        let feeLovelace = Int64(body.fee)
+        let feeLovelace = BigInt(body.fee)
 
         // Net deposits: Σ(deposits) - Σ(refunds), goes on the output side.
         // Positive = net ADA locked with protocol; negative = net ADA returned to wallet.
-        var netDepositLovelace: Int64 = 0
+        var netDepositLovelace = BigInt(0)
+        // A pool registered earlier in this transaction is re-registered by a
+        // later certificate, which takes no second deposit.
+        var poolsRegisteredHere = Set<String>()
         if let certs = body.certificates {
             for cert in certs.asList {
                 switch cert {
                     case .stakeRegistration:
-                        netDepositLovelace += protocolParams.stakeAddressDeposit
+                        netDepositLovelace += BigInt(protocolParams.stakeAddressDeposit)
                     case .stakeDeregistration:
-                        netDepositLovelace -= protocolParams.stakeAddressDeposit
+                        netDepositLovelace -= BigInt(protocolParams.stakeAddressDeposit)
                     case .register(let r):
-                        netDepositLovelace += Int64(r.coin)
+                        netDepositLovelace += BigInt(r.coin)
                     case .unregister(let u):
-                        netDepositLovelace -= Int64(u.coin)
+                        netDepositLovelace -= BigInt(u.coin)
                     case .poolRegistration(let p):
                         // Only count deposit for first-time registration.
                         // Re-registration (pool already exists) is a parameter update — no deposit.
                         let poolId = "\(p.poolParams.poolOperator)"
                         let isReRegistration = context.findPoolContext(poolId: poolId)?.isRegistered ?? false
-                        if !isReRegistration {
-                            netDepositLovelace += protocolParams.stakePoolDeposit
+                        if !isReRegistration && poolsRegisteredHere.insert(poolId).inserted {
+                            netDepositLovelace += BigInt(protocolParams.stakePoolDeposit)
                         }
                     case .registerDRep(let r):
-                        netDepositLovelace += Int64(r.coin)
+                        netDepositLovelace += BigInt(r.coin)
                     case .unRegisterDRep(let u):
-                        netDepositLovelace -= Int64(u.coin)
+                        netDepositLovelace -= BigInt(u.coin)
                     case .stakeRegisterDelegate(let d):
-                        netDepositLovelace += Int64(d.coin)
+                        netDepositLovelace += BigInt(d.coin)
                     case .voteRegisterDelegate(let d):
-                        netDepositLovelace += Int64(d.coin)
+                        netDepositLovelace += BigInt(d.coin)
                     case .stakeVoteRegisterDelegate(let d):
-                        netDepositLovelace += Int64(d.coin)
+                        netDepositLovelace += BigInt(d.coin)
                     default:
                         break
                 }
             }
         }
-        // Governance action deposits (Conway)
+        // Governance action deposits (Conway): each proposal's own deposit,
+        // as the ledger balances them. Whether that deposit is the right one
+        // is the per-proposal check above.
         if let proposals = body.proposalProcedures {
-            netDepositLovelace += Int64(proposals.elementsOrdered.count) * protocolParams.govActionDeposit
+            netDepositLovelace += proposals.elementsOrdered.reduce(BigInt(0)) { $0 + BigInt($1.deposit) }
         }
 
-        // Treasury donation (Conway) — PositiveCoin.value is UInt
-        let donationLovelace = body.treasuryDonation.map { Int64($0.value) } ?? 0
+        // Treasury donation (Conway)
+        let donationLovelace = body.treasuryDonation.map { BigInt($0.value) } ?? 0
         
         if inputLovelace > 0 {
             

@@ -60,8 +60,8 @@ struct GovernanceProposalRuleTests {
         return try GovernanceProposalRule().validate(transaction: tx, context: context, protocolParams: pp)
     }
 
-    private func makeInfoProposal(rewardAccount: RewardAccount) -> ProposalProcedure {
-        ProposalProcedure(
+    private func makeInfoProposal(rewardAccount: RewardAccount) throws -> ProposalProcedure {
+        try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .infoAction(InfoAction()),
@@ -83,7 +83,7 @@ struct GovernanceProposalRuleTests {
     func rewardAccountNetworkMismatch() throws {
         // mainnet reward account, but context expects testnet
         let rewardAccount = makeRewardAccount(network: .mainnet)
-        let proposal = makeInfoProposal(rewardAccount: rewardAccount)
+        let proposal = try makeInfoProposal(rewardAccount: rewardAccount)
         let ctx = ValidationContext(network: .testnet)
         let issues = try runRule(
             proposalProcedures: NonEmptyOrderedSet([proposal]),
@@ -95,7 +95,7 @@ struct GovernanceProposalRuleTests {
     @Test("No network mismatch when reward account matches expected network")
     func rewardAccountNetworkMatch() throws {
         let rewardAccount = makeRewardAccount(network: .testnet)
-        let proposal = makeInfoProposal(rewardAccount: rewardAccount)
+        let proposal = try makeInfoProposal(rewardAccount: rewardAccount)
         let ctx = ValidationContext(network: .testnet)
         let issues = try runRule(
             proposalProcedures: NonEmptyOrderedSet([proposal]),
@@ -109,7 +109,7 @@ struct GovernanceProposalRuleTests {
     @Test("proposalReturnAccountDoesNotExist when return account not in context")
     func returnAccountNotFound() throws {
         let rewardAccount = makeRewardAccount(network: .testnet)
-        let proposal = makeInfoProposal(rewardAccount: rewardAccount)
+        let proposal = try makeInfoProposal(rewardAccount: rewardAccount)
         // Provide some account context but not for this reward account
         let ctx = ValidationContext(
             accountContexts: [
@@ -127,7 +127,7 @@ struct GovernanceProposalRuleTests {
     func returnAccountNotRegistered() throws {
         let rewardAccount = makeRewardAccount(network: .testnet)
         let rewardAddress = rewardAccount.toHexString()
-        let proposal = makeInfoProposal(rewardAccount: rewardAccount)
+        let proposal = try makeInfoProposal(rewardAccount: rewardAccount)
         let ctx = ValidationContext(
             accountContexts: [
                 AccountInputContext(rewardAddress: rewardAddress, isRegistered: false)
@@ -144,7 +144,7 @@ struct GovernanceProposalRuleTests {
     func returnAccountRegistered() throws {
         let rewardAccount = makeRewardAccount(network: .testnet)
         let rewardAddress = rewardAccount.toHexString()
-        let proposal = makeInfoProposal(rewardAccount: rewardAccount)
+        let proposal = try makeInfoProposal(rewardAccount: rewardAccount)
         let ctx = ValidationContext(
             accountContexts: [
                 AccountInputContext(rewardAddress: rewardAddress, isRegistered: true)
@@ -163,7 +163,7 @@ struct GovernanceProposalRuleTests {
     func prevGovActionNotFound() throws {
         let rewardAccount = makeRewardAccount(network: .testnet)
         let prevId = makeGovActionId(byte: 0xAB)
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .hardForkInitiationAction(
@@ -198,7 +198,7 @@ struct GovernanceProposalRuleTests {
         let prevId = makeGovActionId(byte: 0xAB)
         let txIdStr = "\(prevId.transactionID)"
 
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .parameterChangeAction(
@@ -232,7 +232,7 @@ struct GovernanceProposalRuleTests {
     func prevGovActionCheckSkippedWithEmptyContext() throws {
         let rewardAccount = makeRewardAccount(network: .testnet)
         let prevId = makeGovActionId(byte: 0xCD)
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .hardForkInitiationAction(
@@ -258,7 +258,7 @@ struct GovernanceProposalRuleTests {
         let prevId = makeGovActionId(byte: 0xAB)
         let txIdStr = "\(prevId.transactionID)"
 
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .hardForkInitiationAction(
@@ -295,7 +295,7 @@ struct GovernanceProposalRuleTests {
     func zeroTreasuryWithdrawals() throws {
         let rewardAccount = makeRewardAccount(network: .testnet)
         let withdrawalAccount = makeRewardAccount(network: .testnet, keyByte: 0x02)
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .treasuryWithdrawalsAction(
@@ -318,7 +318,7 @@ struct GovernanceProposalRuleTests {
         let rewardAccount = makeRewardAccount(network: .testnet)
         // mainnet withdrawal account with testnet context
         let withdrawalAccount = makeRewardAccount(network: .mainnet, keyByte: 0x02)
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .treasuryWithdrawalsAction(
@@ -341,7 +341,7 @@ struct GovernanceProposalRuleTests {
     func treasuryWithdrawalAccountMissing() throws {
         let rewardAccount = makeRewardAccount(network: .testnet)
         let withdrawalAccount = makeRewardAccount(network: .testnet, keyByte: 0x02)
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .treasuryWithdrawalsAction(
@@ -375,7 +375,7 @@ struct GovernanceProposalRuleTests {
                 VerificationKeyHash(payload: Data(repeating: 0xCC, count: 28))
             )
         )
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .updateCommittee(
@@ -404,7 +404,7 @@ struct GovernanceProposalRuleTests {
                 VerificationKeyHash(payload: Data(repeating: 0xDD, count: 28))
             )
         )
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .updateCommittee(
@@ -433,7 +433,7 @@ struct GovernanceProposalRuleTests {
                 VerificationKeyHash(payload: Data(repeating: 0xDD, count: 28))
             )
         )
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .updateCommittee(
@@ -459,7 +459,7 @@ struct GovernanceProposalRuleTests {
     @Test("InfoAction produces no content-rule errors")
     func infoActionNoErrors() throws {
         let rewardAccount = makeRewardAccount(network: .testnet)
-        let proposal = makeInfoProposal(rewardAccount: rewardAccount)
+        let proposal = try makeInfoProposal(rewardAccount: rewardAccount)
         let issues = try runRule(
             proposalProcedures: NonEmptyOrderedSet([proposal]),
             context: ValidationContext()

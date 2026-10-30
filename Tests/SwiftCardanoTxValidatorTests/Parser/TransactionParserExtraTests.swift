@@ -47,7 +47,7 @@ struct TransactionParserExtraTests {
         let tx = try makeRichTransaction()
         let bytes = try tx.toCBORData()
         let decoded = try parser.parse(cborBytes: bytes)
-        #expect("\(decoded.transactionBody.id)" == "\(tx.transactionBody.id)")
+        #expect(try "\(decoded.transactionBody.id)" == "\(tx.transactionBody.id)")
     }
 
     @Test("parse(cborBytes:) throws malformedCBOR on garbage bytes")
@@ -63,7 +63,7 @@ struct TransactionParserExtraTests {
     func viewFromHex() throws {
         let tx = try makeRichTransaction()
         let view = try parser.view(cborHex: try tx.toCBORHex())
-        #expect(view.txId == "\(tx.transactionBody.id)")
+        #expect(try view.txId == "\(tx.transactionBody.id)")
         #expect(view.fee == 200_000)
     }
 
@@ -71,7 +71,7 @@ struct TransactionParserExtraTests {
     func buildViewFromTransaction() throws {
         let tx = try makeRichTransaction()
         let view = try parser.buildView(transaction: tx)
-        #expect(view.txId == "\(tx.transactionBody.id)")
+        #expect(try view.txId == "\(tx.transactionBody.id)")
         #expect(view.totalCollateral == 1_500_000)
         #expect(view.scriptDataHash != nil)
     }

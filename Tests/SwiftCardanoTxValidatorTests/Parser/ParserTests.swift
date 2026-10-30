@@ -52,7 +52,7 @@ struct ParserTests {
         do {
             let tx = try parser.parse(cborHex: Self.sampleTxHex)
             // If parsing succeeds, check basic fields
-            #expect(!"\(tx.transactionBody.id)".isEmpty)
+            #expect(!"\(try tx.transactionBody.id)".isEmpty)
             #expect(tx.transactionBody.fee > 0)
         } catch TxValidatorError.malformedCBOR {
             // Acceptable if the illustrative hex is not valid CBOR

@@ -373,7 +373,8 @@ extension ValidationContext {
 
     // MARK: - GovAction → GovActionType mapping
 
-    private static func govActionType(from action: GovAction) -> GovActionType {
+    private static func govActionType(from action: GovAction?) -> GovActionType? {
+        guard let action else { return nil }
         switch action {
             case .parameterChangeAction:     return .parameterChange
             case .hardForkInitiationAction:  return .hardForkInitiation

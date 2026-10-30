@@ -9,26 +9,41 @@ public struct TransactionParser: Sendable {
     // MARK: - Parse to Transaction
 
     /// Decode a hex-encoded CBOR string to a `Transaction`.
+    ///
+    /// See ``parse(cborBytes:)`` for which era's rules it is read by.
     /// - Throws: `TxValidatorError.malformedCBOR` wrapping the underlying decode error.
     public func parse(cborHex: String) throws -> Transaction {
-        do {
-            return try Transaction.fromCBORHex(cborHex)
-        } catch {
-            throw TxValidatorError.malformedCBOR(
-                "Failed to decode transaction from CBOR hex: \(error.localizedDescription)"
-            )
+        guard let bytes = Data(hexString: cborHex.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw TxValidatorError.malformedCBOR("Failed to decode transaction from CBOR hex: not hex")
         }
+        return try parse(cborBytes: bytes, from: "hex")
     }
 
     /// Decode raw CBOR bytes to a `Transaction`.
+    ///
+    /// Each era's ledger reads a transaction by its own rules — a Shelley
+    /// body's protocol-parameter update, for one, is no field of a Conway
+    /// body. The transaction is read by the latest era whose ledger accepts
+    /// it, so a current transaction is read as Conway and an older one as the
+    /// era it was submitted in.
+    /// - Throws: `TxValidatorError.malformedCBOR` with why the current era
+    ///   rejects it, when no era reads it.
     public func parse(cborBytes: Data) throws -> Transaction {
-        do {
-            return try Transaction.fromCBOR(data: cborBytes)
-        } catch {
-            throw TxValidatorError.malformedCBOR(
-                "Failed to decode transaction from CBOR bytes: \(error.localizedDescription)"
-            )
+        try parse(cborBytes: cborBytes, from: "bytes")
+    }
+
+    private func parse(cborBytes: Data, from source: String) throws -> Transaction {
+        var latestError: (any Error)?
+        for era in Era.allCases.reversed() where era >= .shelley {
+            do {
+                return try Transaction.fromCBOR(data: cborBytes, era: era)
+            } catch {
+                latestError = latestError ?? error
+            }
         }
+        throw TxValidatorError.malformedCBOR(
+            "Failed to decode transaction from CBOR \(source): \(latestError.map { "\($0)" } ?? "no era reads it")"
+        )
     }
 
     // MARK: - Human-readable view
@@ -55,14 +70,14 @@ public struct TransactionParser: Sendable {
     /// Extract all fields of a transaction as a flat list of `FieldView` values.
     public func fields(cborHex: String) throws -> [FieldView] {
         let tx = try parse(cborHex: cborHex)
-        return extractFields(from: tx)
+        return try extractFields(from: tx)
     }
 
-    private func extractFields(from tx: Transaction) -> [FieldView] {
+    private func extractFields(from tx: Transaction) throws -> [FieldView] {
         var fields: [FieldView] = []
         let body = tx.transactionBody
 
-        fields.append(FieldView(path: "transaction_body.tx_id", value: "\(body.id)"))
+        fields.append(FieldView(path: "transaction_body.tx_id", value: "\(try body.id)"))
         fields.append(FieldView(path: "transaction_body.fee", value: "\(body.fee) lovelace"))
         fields.append(FieldView(path: "transaction.valid", value: "\(tx.valid)"))
 

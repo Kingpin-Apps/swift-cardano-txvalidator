@@ -1,3 +1,4 @@
+import BigInt
 import Foundation
 import SwiftCardanoCore
 
@@ -11,9 +12,8 @@ import SwiftCardanoCore
 /// Minimum fee formula (Babbage / Conway):
 /// ```
 /// min_fee = txFeePerByte * tx_size_bytes + txFeeFixed
-///         + executionUnitPrices.priceMemory * Σ(redeemer.mem)
-///         + executionUnitPrices.priceSteps  * Σ(redeemer.steps)
-///         + minFeeRefScriptCostPerByte * Σ(inline_reference_script_bytes)  [Conway only]
+///         + ⌈priceMemory × Σ(redeemer.mem) + priceSteps × Σ(redeemer.steps)⌉
+///         + ⌊tiered reference-script fee over Σ(reference_script_bytes)⌋  [Conway only]
 /// ```
 public struct FeeRule: ValidationRule {
     public let name = "fee"
@@ -44,36 +44,32 @@ public struct FeeRule: ValidationRule {
         let txSize = signedSize.bytes
 
         // 1. Size-based fee component
-        let txSizeFee = UInt64(protocolParams.txFeePerByte) * UInt64(txSize)
-        var minFee = txSizeFee + UInt64(protocolParams.txFeeFixed)
+        let txSizeFee = BigInt(protocolParams.txFeePerByte) * BigInt(txSize)
+        var minFee = txSizeFee + BigInt(protocolParams.txFeeFixed)
 
-        // 2. Execution-unit fee component (Alonzo+)
-        //    fee += priceMemory × Σ(mem) + priceSteps × Σ(steps)
+        // 2. Execution-unit fee component (Alonzo+): the ledger's txscriptfee,
+        //    the exact cost of every redeemer's memory and steps rounded up once.
         if let redeemers = witnesses.redeemers {
-            var totalMem: Double = 0
-            var totalSteps: Double = 0
+            var totalMem = BigInt(0)
+            var totalSteps = BigInt(0)
 
             switch redeemers {
             case .list(let list):
                 for r in list {
                     if let eu = r.exUnits {
-                        totalMem  += Double(eu.mem)
-                        totalSteps += Double(eu.steps)
+                        totalMem += BigInt(eu.mem)
+                        totalSteps += BigInt(eu.steps)
                     }
                 }
             case .map(let map):
                 for rv in map.dictionary.values {
-                    totalMem  += Double(rv.exUnits.mem)
-                    totalSteps += Double(rv.exUnits.steps)
+                    totalMem += BigInt(rv.exUnits.mem)
+                    totalSteps += BigInt(rv.exUnits.steps)
                 }
             }
 
-            let exUnitFee = protocolParams.executionUnitPrices.priceMemory * totalMem
-                          + protocolParams.executionUnitPrices.priceSteps  * totalSteps
-            // The ledger rounds the script fee up. Prices are rationals held
-            // here as doubles, so a hair of tolerance keeps float noise on an
-            // exact integer from rounding it up a lovelace too far.
-            minFee += UInt64(max(0, (exUnitFee - 1e-6).rounded(.up)))
+            minFee += LedgerFees.scriptFee(
+                prices: protocolParams.executionUnitPrices, memory: totalMem, steps: totalSteps)
         }
 
         // 3. Reference-script fee component (Conway+)
@@ -93,27 +89,14 @@ public struct FeeRule: ValidationRule {
                 totalRefScriptBytes += scriptBytes.count
             }
         }
-        if totalRefScriptBytes > 0 {
-            // Prefer tiered model (base × multiplier^tier for each chunk of `range` bytes)
-            if let tiered = protocolParams.minFeeReferenceScripts,
-               let base = tiered.base, base > 0,
-               let multiplier = tiered.multiplier, multiplier > 0,
-               let range = tiered.range, range > 0 {
-                minFee += tieredRefScriptFee(
-                    totalBytes: totalRefScriptBytes,
-                    base: base,
-                    multiplier: multiplier,
-                    range: range
-                )
-            } else if let refCostPerByte = protocolParams.minFeeRefScriptCostPerByte, refCostPerByte > 0 {
-                // Flat model fallback
-                minFee += UInt64(refCostPerByte * Int64(totalRefScriptBytes))
-            }
+        if totalRefScriptBytes > 0,
+           let referenceScriptFee = LedgerFees.referenceScriptFee(bytes: totalRefScriptBytes, parameters: protocolParams) {
+            minFee += referenceScriptFee
         }
 
         var issues: [ValidationError] = []
 
-        if declaredFee < minFee {
+        if BigInt(declaredFee) < minFee {
             let unsigned = signedSize.missingWitnesses
             let counting = unsigned == 0 ? "" : ", counting the \(unsigned) vkey witness\(unsigned == 1 ? "" : "es") still to be added"
             issues.append(ValidationError(
@@ -128,7 +111,7 @@ public struct FeeRule: ValidationRule {
                     : "Rebuild the transaction with a fee of at least \(minFee) lovelace. Signing cannot fix "
                         + "it: the signatures are part of what the fee pays for, and the fee is part of what is signed."
             ))
-        } else if declaredFee > minFee * 110 / 100 {
+        } else if BigInt(declaredFee) > minFee * 110 / 100 {
             // Warn if fee is more than 10% over minimum (likely a mistake but not invalid).
             issues.append(ValidationError(
                 kind: .feeTooBig,
@@ -142,36 +125,6 @@ public struct FeeRule: ValidationRule {
 
         return issues
     }
-}
-
-// MARK: - Tiered reference-script fee
-
-/// Compute the tiered reference-script fee per the Conway ledger spec.
-///
-/// The total script bytes are split into chunks of `range` bytes.
-/// Each successive chunk is charged at `base × multiplier^i` per byte,
-/// making larger scripts progressively more expensive.
-private func tieredRefScriptFee(
-    totalBytes: Int,
-    base: Double,
-    multiplier: Double,
-    range: Double
-) -> UInt64 {
-    let chunkSize = Int(range)
-    guard chunkSize > 0 else { return 0 }
-
-    var remaining = totalBytes
-    var tier = 0
-    var fee: Double = 0
-
-    while remaining > 0 {
-        let chunk = min(remaining, chunkSize)
-        fee += base * Double(chunk) * pow(multiplier, Double(tier))
-        remaining -= chunk
-        tier += 1
-    }
-
-    return UInt64(ceil(fee))
 }
 
 // MARK: - ScriptType helpers

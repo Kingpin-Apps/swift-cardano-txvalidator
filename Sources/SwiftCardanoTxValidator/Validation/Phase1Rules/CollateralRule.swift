@@ -1,3 +1,4 @@
+import BigInt
 import Foundation
 import SwiftCardanoCore
 
@@ -116,8 +117,10 @@ public struct CollateralRule: ValidationRule {
             }
         }
 
-        // Minimum collateral amount = fee × collateralPercentage / 100
-        let minCollateral = body.fee * UInt64(protocolParams.collateralPercentage) / 100
+        // The ledger wants collateral × 100 ≥ fee × collateralPercentage, so
+        // the least that satisfies it is that quotient rounded up.
+        let feeShare = BigInt(body.fee) * BigInt(protocolParams.collateralPercentage)
+        let minCollateral = (feeShare + 99) / 100
 
         // Compute total supplied collateral lovelace (from resolved inputs minus return)
         if !context.resolvedInputs.isEmpty, let inputs = collateralInputs {
@@ -127,40 +130,34 @@ public struct CollateralRule: ValidationRule {
                 }
             )
 
-            var totalCollateralAda: Int64 = 0
-            for input in inputs.asList {
-                let key = "\(input.transactionId)#\(input.index)"
-                if let resolved = resolvedMap[key] {
-                    totalCollateralAda += resolved.amount.coin
-                }
+            // A collateral input that cannot be resolved — routinely an
+            // already-spent one, or any backend that returns only unspent
+            // UTxOs — leaves the net collateral unknown, so it is not checked
+            // rather than reported short. TransactionLimitsRule reports it.
+            let resolvedCollateral = inputs.asList.compactMap { resolvedMap["\($0.transactionId)#\($0.index)"] }
+            guard resolvedCollateral.count == inputs.asList.count else {
+                return issues
             }
+
+            var totalCollateralAda = resolvedCollateral.reduce(BigInt(0)) { $0 + $1.amount.coin }
             // Subtract collateral return
             if let ret = body.collateralReturn {
                 totalCollateralAda -= ret.amount.coin
             }
 
-            // `totalCollateralAda` can be negative: a collateral input that
-            // cannot be resolved contributes nothing while the collateral
-            // return is still subtracted. That happens routinely for an
-            // already-spent input, or with any backend that only returns
-            // unspent UTxOs. Compare signed — converting to UInt64 here traps
-            // and takes the whole validation run down with it.
-
             // Check declared totalCollateral field matches actual
-            if let declared = body.totalCollateral {
-                if Int64(exactly: declared).map({ $0 != totalCollateralAda }) ?? true {
-                    issues.append(ValidationError(
-                        kind: .incorrectTotalCollateral,
-                        fieldPath: "transaction_body.total_collateral",
-                        message: "Declared total_collateral \(declared) lovelace does not match "
-                            + "computed net collateral \(totalCollateralAda) lovelace.",
-                        hint: "Set total_collateral to the exact difference between collateral "
-                            + "inputs and the collateral return output."
-                    ))
-                }
+            if let declared = body.totalCollateral, BigInt(declared) != totalCollateralAda {
+                issues.append(ValidationError(
+                    kind: .incorrectTotalCollateral,
+                    fieldPath: "transaction_body.total_collateral",
+                    message: "Declared total_collateral \(declared) lovelace does not match "
+                        + "computed net collateral \(totalCollateralAda) lovelace.",
+                    hint: "Set total_collateral to the exact difference between collateral "
+                        + "inputs and the collateral return output."
+                ))
             }
 
-            if totalCollateralAda < 0 || UInt64(totalCollateralAda) < minCollateral {
+            if totalCollateralAda * 100 < feeShare {
                 issues.append(ValidationError(
                     kind: .insufficientCollateral,
                     fieldPath: "transaction_body.collateral",
@@ -216,7 +213,7 @@ public struct CollateralRule: ValidationRule {
         // Collateral return min-ADA check
         if let ret = body.collateralReturn {
             if let retBytes = try? ret.toCBORData() {
-                let minAda = protocolParams.utxoCostPerByte * Int64(160 + retBytes.count)
+                let minAda = BigInt(protocolParams.utxoCostPerByte) * BigInt(160 + retBytes.count)
                 if ret.amount.coin < minAda {
                     issues.append(ValidationError(
                         kind: .collateralReturnTooSmall,

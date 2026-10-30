@@ -1,3 +1,4 @@
+import BigInt
 import Foundation
 import SwiftCardanoCore
 
@@ -71,7 +72,8 @@ public struct TransactionView: Sendable, Codable, Equatable {
     // MARK: - Mint
 
     /// Human-readable mint/burn policy map, if present.
-    /// Keys are policy IDs (hex); values are `{ assetName: amount }`.
+    /// Keys are policy IDs (hex); values are `{ assetName: amount }`, a
+    /// burn negative, each a ledger `Int64`.
     public let mint: [String: [String: Int64]]?
 
     // MARK: - Auxiliary
@@ -108,10 +110,11 @@ public struct TransactionView: Sendable, Codable, Equatable {
 public struct OutputView: Sendable, Codable, Equatable {
     /// Bech32 or hex address string.
     public let address: String
-    /// ADA value in lovelace.
-    public let lovelace: Int64
-    /// Multi-asset policy map `{ policyId: { assetName: amount } }`, if present.
-    public let multiAsset: [String: [String: Int64]]?
+    /// ADA value in lovelace, a ledger `Word64`.
+    public let lovelace: UInt64
+    /// Multi-asset policy map `{ policyId: { assetName: amount } }`, if
+    /// present. Each quantity is a ledger `Word64`.
+    public let multiAsset: [String: [String: UInt64]]?
     /// Whether the output carries an inline datum.
     public let hasInlineDatum: Bool
     /// Whether the output carries a datum hash.
@@ -160,16 +163,7 @@ extension TransactionView {
             redeemerCount = 0
         }
 
-        let mint: [String: [String: Int64]]? = body.mint.map { multiAsset in
-            Dictionary(uniqueKeysWithValues: multiAsset.data.map { (policyId, asset) in
-                let assetMap = Dictionary(
-                    uniqueKeysWithValues: asset.data.map { (name, qty) in
-                        (name.payload.hexEncodedString(), qty)
-                    }
-                )
-                return ("\(policyId)", assetMap)
-            })
-        }
+        let mint: [String: [String: Int64]]? = try body.mint.map { try quantities($0, "Mint") }
 
         let auxHashHex = body.auxiliaryDataHash.map { "\($0)" }
 
@@ -184,7 +178,7 @@ extension TransactionView {
             redeemerCount > 0
 
         return TransactionView(
-            txId: "\(body.id)",
+            txId: "\(try body.id)",
             isValid: tx.valid,
             inputs: inputs,
             referenceInputs: referenceInputs,
@@ -226,19 +220,8 @@ extension OutputView {
             addressStr = output.address.toBytes().hexEncodedString()
         }
 
-        let multiAsset: [String: [String: Int64]]?
-        if output.amount.multiAsset.data.isEmpty {
-            multiAsset = nil
-        } else {
-            multiAsset = Dictionary(uniqueKeysWithValues: output.amount.multiAsset.data.map { policyId, asset in
-                let assetMap = Dictionary(
-                    uniqueKeysWithValues: asset.data.map { name, qty in
-                        (name.payload.hexEncodedString(), qty)
-                    }
-                )
-                return ("\(policyId)", assetMap)
-            })
-        }
+        let multiAsset: [String: [String: UInt64]]? = output.amount.multiAsset.data.isEmpty
+            ? nil : try quantities(output.amount.multiAsset, "Output quantity")
 
         let hasInlineDatum: Bool
         let hasDatumHash: Bool
@@ -255,7 +238,7 @@ extension OutputView {
 
         return OutputView(
             address: addressStr,
-            lovelace: output.amount.coin,
+            lovelace: try exactly(output.amount.coin, "Output lovelace"),
             multiAsset: multiAsset,
             hasInlineDatum: hasInlineDatum,
             hasDatumHash: hasDatumHash,
@@ -270,4 +253,21 @@ private extension Data {
     func hexEncodedString() -> String {
         map { String(format: "%02x", $0) }.joined()
     }
+}
+
+/// `value` as a `T`, or an error naming `what` when the ledger could not hold it.
+private func exactly<T: FixedWidthInteger>(_ value: BigInt, _ what: String) throws -> T {
+    guard let result = T(exactly: value) else {
+        throw TxValidatorError.malformedCBOR("\(what) \(value) does not fit a ledger \(T.self)")
+    }
+    return result
+}
+
+/// A multi-asset's quantities as `{ policyId: { assetName: amount } }`.
+private func quantities<T: FixedWidthInteger>(_ multiAsset: MultiAsset, _ what: String) throws -> [String: [String: T]] {
+    try Dictionary(uniqueKeysWithValues: multiAsset.data.map { policyId, asset in
+        ("\(policyId)", try Dictionary(uniqueKeysWithValues: asset.data.map { name, qty in
+            (name.payload.hexEncodedString(), try exactly(qty, what) as T)
+        }))
+    })
 }

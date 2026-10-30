@@ -63,7 +63,7 @@ struct RegistrationRuleTests {
     func stakeAlreadyRegistered() throws {
         let cred = makeStakeCred(0x10)
         let credStr = "\(cred)"
-        let cert = Certificate.register(Register(stakeCredential: cred, coin: 2_000_000))
+        let cert = Certificate.register(try Register(stakeCredential: cred, coin: 2_000_000))
         let ctx = ValidationContext(
             accountContexts: [
                 AccountInputContext(rewardAddress: credStr, isRegistered: true)
@@ -79,7 +79,7 @@ struct RegistrationRuleTests {
     func stakeNotRegistered() throws {
         let cred = makeStakeCred(0x11)
         let credStr = "\(cred)"
-        let cert = Certificate.unregister(Unregister(stakeCredential: cred, coin: 2_000_000))
+        let cert = Certificate.unregister(try Unregister(stakeCredential: cred, coin: 2_000_000))
         let ctx = ValidationContext(
             accountContexts: [
                 AccountInputContext(rewardAddress: credStr, isRegistered: false)
@@ -95,7 +95,7 @@ struct RegistrationRuleTests {
     func stakeNonZeroBalance() throws {
         let cred = makeStakeCred(0x12)
         let credStr = "\(cred)"
-        let cert = Certificate.unregister(Unregister(stakeCredential: cred, coin: 2_000_000))
+        let cert = Certificate.unregister(try Unregister(stakeCredential: cred, coin: 2_000_000))
         let ctx = ValidationContext(
             accountContexts: [
                 AccountInputContext(
@@ -123,14 +123,14 @@ struct RegistrationRuleTests {
             poolOperator: poolKH,
             vrfKeyHash: vrfKH,
             pledge: 100_000_000,
-            cost: Int(pp.minPoolCost - 1), // Below minimum
+            cost: pp.minPoolCost - 1, // Below minimum
             margin: UnitInterval(numerator: 1, denominator: 100),
             rewardAccount: rewardAccount,
             poolOwners: .list([owner]),
             relays: nil,
             poolMetadata: nil
         )
-        let cert = Certificate.poolRegistration(PoolRegistration(poolParams: poolParams))
+        let cert = Certificate.poolRegistration(try PoolRegistration(poolParams: poolParams))
         let poolId = "\(poolKH)"
 
         let ctx = ValidationContext(
@@ -156,14 +156,14 @@ struct RegistrationRuleTests {
             poolOperator: poolKH,
             vrfKeyHash: vrfKH,
             pledge: 100_000_000,
-            cost: Int(pp.minPoolCost),
+            cost: pp.minPoolCost,
             margin: UnitInterval(numerator: 1, denominator: 100),
             rewardAccount: rewardAccount,
             poolOwners: .list([owner]),
             relays: nil,
             poolMetadata: nil
         )
-        let cert = Certificate.poolRegistration(PoolRegistration(poolParams: poolParams))
+        let cert = Certificate.poolRegistration(try PoolRegistration(poolParams: poolParams))
         let poolId = "\(poolKH)"
 
         let ctx = ValidationContext(
@@ -187,7 +187,7 @@ struct RegistrationRuleTests {
 
         // Retire at epoch 0 (too early — current epoch is 100)
         let cert = Certificate.poolRetirement(
-            PoolRetirement(poolKeyHash: poolKH, epoch: 0)
+            try PoolRetirement(poolKeyHash: poolKH, epoch: 0)
         )
         let ctx = ValidationContext(
             poolContexts: [
@@ -207,7 +207,7 @@ struct RegistrationRuleTests {
         let poolId = "\(poolKH)"
 
         let cert = Certificate.poolRetirement(
-            PoolRetirement(poolKeyHash: poolKH, epoch: 200)
+            try PoolRetirement(poolKeyHash: poolKH, epoch: 200)
         )
         let ctx = ValidationContext(
             poolContexts: [
@@ -225,7 +225,7 @@ struct RegistrationRuleTests {
     func drepAlreadyRegistered() throws {
         let cred = makeDRepCred(0x30)
         let drepId = "\(cred)"
-        let cert = Certificate.registerDRep(RegisterDRep(drepCredential: cred, coin: 500_000_000))
+        let cert = Certificate.registerDRep(try RegisterDRep(drepCredential: cred, coin: 500_000_000))
         let ctx = ValidationContext(
             drepContexts: [
                 DRepInputContext(drepId: drepId, isRegistered: true)
@@ -243,7 +243,7 @@ struct RegistrationRuleTests {
     func drepNotRegistered() throws {
         let cred = makeDRepCred(0x31)
         let drepId = "\(cred)"
-        let cert = Certificate.unRegisterDRep(UnregisterDRep(drepCredential: cred, coin: 500_000_000))
+        let cert = Certificate.unRegisterDRep(try UnregisterDRep(drepCredential: cred, coin: 500_000_000))
         let ctx = ValidationContext(
             drepContexts: [
                 DRepInputContext(drepId: drepId, isRegistered: false)
@@ -261,8 +261,8 @@ struct RegistrationRuleTests {
     func duplicateStakeRegistration() throws {
         let cred = makeStakeCred(0x40)
         let credStr = "\(cred)"
-        let cert1 = Certificate.register(Register(stakeCredential: cred, coin: 2_000_000))
-        let cert2 = Certificate.register(Register(stakeCredential: cred, coin: 2_000_000))
+        let cert1 = Certificate.register(try Register(stakeCredential: cred, coin: 2_000_000))
+        let cert2 = Certificate.register(try Register(stakeCredential: cred, coin: 2_000_000))
         let ctx = ValidationContext(
             accountContexts: [
                 AccountInputContext(rewardAddress: credStr, isRegistered: false)
@@ -289,7 +289,7 @@ struct RegistrationRuleTests {
             )
         )
         let cert = Certificate.authCommitteeHot(
-            AuthCommitteeHot(
+            try AuthCommitteeHot(
                 committeeColdCredential: coldCred,
                 committeeHotCredential: hotCred
             )
@@ -325,7 +325,7 @@ struct RegistrationRuleTests {
         )
         let coldId = "\(coldCred)"
         let cert = Certificate.authCommitteeHot(
-            AuthCommitteeHot(
+            try AuthCommitteeHot(
                 committeeColdCredential: coldCred,
                 committeeHotCredential: hotCred
             )
@@ -348,7 +348,7 @@ struct RegistrationRuleTests {
     @Test("RegistrationRule skips all checks when no chain state is present")
     func skipsWithoutChainState() throws {
         let cred = makeStakeCred(0x60)
-        let cert = Certificate.register(Register(stakeCredential: cred, coin: 2_000_000))
+        let cert = Certificate.register(try Register(stakeCredential: cred, coin: 2_000_000))
         let ctx = ValidationContext()
         let issues = try runRule(certs: [cert], context: ctx)
         #expect(issues.isEmpty, "Expected no issues when chain state is absent")

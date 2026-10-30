@@ -37,7 +37,7 @@ struct TxValidatorTests {
     func inspectTransaction() throws {
         let tx = try makeTransaction()
         let view = try TxValidator().inspect(transaction: tx)
-        #expect(view.txId == "\(tx.transactionBody.id)")
+        #expect(try view.txId == "\(tx.transactionBody.id)")
     }
 
     @Test("necessaryData(transaction:) reports the spending input")
@@ -89,7 +89,7 @@ struct TxValidatorTests {
         let validator = TxValidator()
 
         let view = try validator.inspect(cborHex: hex)
-        #expect(view.txId == "\(tx.transactionBody.id)")
+        #expect(try view.txId == "\(tx.transactionBody.id)")
 
         let needed = try validator.necessaryData(cborHex: hex)
         #expect(needed.inputs.count == 1)

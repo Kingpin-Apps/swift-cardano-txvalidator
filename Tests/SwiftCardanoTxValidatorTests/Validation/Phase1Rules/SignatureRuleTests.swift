@@ -255,7 +255,7 @@ struct SignatureRuleTests {
         let stakeCred = StakeCredential(
             credential: .verificationKeyHash(vkeyHash)
         )
-        let cert = Certificate.stakeDeregistration(StakeDeregistration(stakeCredential: stakeCred))
+        let cert = Certificate.stakeDeregistration(try StakeDeregistration(stakeCredential: stakeCred))
         let body = TransactionBody(
             inputs: .list([]),
             outputs: [],
@@ -278,7 +278,7 @@ struct SignatureRuleTests {
         let stakeCred = StakeCredential(credential: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0x09, count: 28))))
         let body = TransactionBody(
             inputs: .list([]), outputs: [], fee: 100_000,
-            certificates: .list([.stakeRegistration(StakeRegistration(stakeCredential: stakeCred))])
+            certificates: .list([.stakeRegistration(try StakeRegistration(stakeCredential: stakeCred))])
         )
         let tx = Transaction(transactionBody: body, transactionWitnessSet: TransactionWitnessSet())
         let issues = try SignatureRule().validate(transaction: tx, context: ValidationContext(), protocolParams: try loadProtocolParams())

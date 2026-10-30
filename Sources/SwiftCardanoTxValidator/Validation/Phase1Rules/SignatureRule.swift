@@ -79,7 +79,7 @@ public struct SignatureRule: ValidationRule {
         // The signed message is the transaction id: Blake2b-256 of the body
         // *as written*. A re-encoding of the decoded body can differ from it,
         // and every signature would then fail to verify.
-        let txBodyHash = body.hash()
+        let txBodyHash = try body.hash()
 
         for (i, vkw) in vkeyWitnesses.enumerated() {
             let vkeyBytes = vkw.vkey.payload

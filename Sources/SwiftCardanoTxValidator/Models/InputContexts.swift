@@ -100,15 +100,16 @@ public struct GovActionInputContext: Sendable, Codable, Equatable {
     public let transactionId: String
     /// Index within that transaction.
     public let govActionIndex: UInt16
-    /// The type of governance action.
-    public let actionType: GovActionType
+    /// The type of governance action, or `nil` when the chain no longer holds
+    /// the action's body — as for one enacted long ago — so its type is unknown.
+    public let actionType: GovActionType?
     /// Whether the action is still active (not expired or enacted).
     public let isActive: Bool
 
     public init(
         transactionId: String,
         govActionIndex: UInt16,
-        actionType: GovActionType,
+        actionType: GovActionType?,
         isActive: Bool
     ) {
         self.transactionId = transactionId

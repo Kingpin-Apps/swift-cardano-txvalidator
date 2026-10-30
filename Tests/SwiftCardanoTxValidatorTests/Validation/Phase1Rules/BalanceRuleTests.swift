@@ -22,7 +22,7 @@ struct BalanceRuleTests {
         )
         // Wrong deposit — should be pp.stakeAddressDeposit
         let wrongDeposit: Coin = Coin(pp.stakeAddressDeposit) + 1_000_000
-        let cert = Certificate.register(Register(stakeCredential: stakeCred, coin: wrongDeposit))
+        let cert = Certificate.register(try Register(stakeCredential: stakeCred, coin: wrongDeposit))
 
         let txId = TransactionId(payload: Data(repeating: 0xA1, count: 32))
         let input = TransactionInput(transactionId: txId, index: 0)
@@ -59,7 +59,7 @@ struct BalanceRuleTests {
             )
         )
         let cert = Certificate.register(
-            Register(stakeCredential: stakeCred, coin: Coin(pp.stakeAddressDeposit))
+            try Register(stakeCredential: stakeCred, coin: Coin(pp.stakeAddressDeposit))
         )
 
         let txId = TransactionId(payload: Data(repeating: 0xA2, count: 32))
@@ -97,7 +97,7 @@ struct BalanceRuleTests {
             )
         )
         let wrongRefund: Coin = 0
-        let cert = Certificate.unregister(Unregister(stakeCredential: stakeCred, coin: wrongRefund))
+        let cert = Certificate.unregister(try Unregister(stakeCredential: stakeCred, coin: wrongRefund))
 
         let txId = TransactionId(payload: Data(repeating: 0xA3, count: 32))
         let input = TransactionInput(transactionId: txId, index: 0)
@@ -134,7 +134,7 @@ struct BalanceRuleTests {
         )
         let wrongDeposit: Coin = Coin(pp.dRepDeposit) + 500_000
         let cert = Certificate.registerDRep(
-            RegisterDRep(drepCredential: drepCred, coin: wrongDeposit)
+            try RegisterDRep(drepCredential: drepCred, coin: wrongDeposit)
         )
 
         let txId = TransactionId(payload: Data(repeating: 0xA4, count: 32))
@@ -172,7 +172,7 @@ struct BalanceRuleTests {
         )
         let wrongRefund: Coin = 0
         let cert = Certificate.unRegisterDRep(
-            UnregisterDRep(drepCredential: drepCred, coin: wrongRefund)
+            try UnregisterDRep(drepCredential: drepCred, coin: wrongRefund)
         )
 
         let txId = TransactionId(payload: Data(repeating: 0xA5, count: 32))

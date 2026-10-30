@@ -1,3 +1,4 @@
+import BigInt
 import Foundation
 import SwiftCardanoCore
 
@@ -36,8 +37,8 @@ public struct OutputValueRule: ValidationRule {
             }
 
             // Minimum ADA check
-            let minAda = protocolParams.utxoCostPerByte * Int64(160 + outputBytes.count)
-            let lovelace = output.amount.coin  // Int64
+            let minAda = BigInt(protocolParams.utxoCostPerByte) * BigInt(160 + outputBytes.count)
+            let lovelace = output.amount.coin
 
             if lovelace < minAda {
                 issues.append(ValidationError(

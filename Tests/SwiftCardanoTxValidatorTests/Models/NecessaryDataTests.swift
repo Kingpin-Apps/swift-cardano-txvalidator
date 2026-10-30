@@ -98,7 +98,7 @@ struct NecessaryDataTests {
             anchorUrl: try Url("https://test.example.com"),
             anchorDataHash: AnchorDataHash(payload: Data(repeating: 0, count: 32))
         )
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: rewardAccount,
             govAction: .infoAction(InfoAction()),

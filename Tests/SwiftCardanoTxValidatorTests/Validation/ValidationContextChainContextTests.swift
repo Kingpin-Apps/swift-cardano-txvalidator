@@ -99,12 +99,12 @@ struct ValidationContextChainContextTests {
         let pp = try loadProtocolParams()
         let ctxChain = MockChainContext(protocolParams: pp)
 
-        let stakeReg = Certificate.stakeRegistration(StakeRegistration(stakeCredential: makeStakeCred(0x10)))
+        let stakeReg = Certificate.stakeRegistration(try StakeRegistration(stakeCredential: makeStakeCred(0x10)))
         let poolRetire = Certificate.poolRetirement(
-            PoolRetirement(poolKeyHash: PoolKeyHash(payload: Data(repeating: 0x20, count: 28)), epoch: 100)
+            try PoolRetirement(poolKeyHash: PoolKeyHash(payload: Data(repeating: 0x20, count: 28)), epoch: 100)
         )
         let regDRep = Certificate.registerDRep(
-            RegisterDRep(
+            try RegisterDRep(
                 drepCredential: DRepCredential(
                     credential: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0x30, count: 28)))
                 ),
@@ -113,7 +113,7 @@ struct ValidationContextChainContextTests {
             )
         )
         let authHot = Certificate.authCommitteeHot(
-            AuthCommitteeHot(
+            try AuthCommitteeHot(
                 committeeColdCredential: CommitteeColdCredential(
                     credential: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0x40, count: 28)))
                 ),

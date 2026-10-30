@@ -76,7 +76,7 @@ struct EraAwareTests {
         )
         // Mainnet reward account — in Conway+testnet context this would emit a network mismatch.
         let mainnetReward: RewardAccount = Data([0xE1] + [UInt8](repeating: 0x01, count: 28))
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: mainnetReward,
             govAction: .infoAction(InfoAction()),
@@ -102,7 +102,7 @@ struct EraAwareTests {
             anchorDataHash: AnchorDataHash(payload: Data(repeating: 0xAA, count: 32))
         )
         let mainnetReward: RewardAccount = Data([0xE1] + [UInt8](repeating: 0x01, count: 28))
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: 500_000_000,
             rewardAccount: mainnetReward,
             govAction: .infoAction(InfoAction()),
@@ -165,7 +165,7 @@ struct EraAwareTests {
             )
         )
         let registerDRepCert = Certificate.registerDRep(
-            RegisterDRep(drepCredential: drepCred, coin: 500_000_000, anchor: nil)
+            try RegisterDRep(drepCredential: drepCred, coin: 500_000_000, anchor: nil)
         )
         let body = try makeBody(certificates: .list([registerDRepCert]))
         let tx = makeTx(body)
@@ -191,7 +191,7 @@ struct EraAwareTests {
             )
         )
         let stakeRegCert = Certificate.stakeRegistration(
-            StakeRegistration(stakeCredential: stakeCred)
+            try StakeRegistration(stakeCredential: stakeCred)
         )
         let body = try makeBody(certificates: .list([stakeRegCert]))
         let tx = makeTx(body)
@@ -229,7 +229,7 @@ struct EraAwareTests {
             relays: nil,
             poolMetadata: nil
         )
-        let poolRegCert = Certificate.poolRegistration(PoolRegistration(poolParams: poolParams))
+        let poolRegCert = Certificate.poolRegistration(try PoolRegistration(poolParams: poolParams))
         let body = try makeBody(certificates: .list([poolRegCert]))
         let tx = makeTx(body)
 
@@ -263,7 +263,7 @@ struct EraAwareTests {
             relays: nil,
             poolMetadata: nil
         )
-        let poolRegCert = Certificate.poolRegistration(PoolRegistration(poolParams: poolParams))
+        let poolRegCert = Certificate.poolRegistration(try PoolRegistration(poolParams: poolParams))
         let body = try makeBody(certificates: .list([poolRegCert]))
         let tx = makeTx(body)
 
