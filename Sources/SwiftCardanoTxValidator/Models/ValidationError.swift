@@ -79,6 +79,8 @@ public struct ValidationError: Sendable, Codable, Equatable {
         /// warning: a chain-state lookup failed, so a check that depends on
         /// it may report the thing as absent when it could not be read.
         case chainLookupFailed  // warning
+        /// The metadata holds a byte string or text longer than 64 bytes.
+        case invalidMetadata
         // Registration errors (Batch 6)
         case stakeAlreadyRegistered
         case stakeNotRegistered
@@ -178,6 +180,7 @@ public struct ValidationError: Sendable, Codable, Equatable {
             case .cannotCheckBalance: return "Balance Not Checked"
             case .cannotCheckCollateral: return "Collateral Not Checked"
             case .chainLookupFailed: return "Chain Lookup Failed"
+            case .invalidMetadata: return "Invalid Metadata"
             case .stakeAlreadyRegistered: return "Stake Already Registered"
             case .stakeNotRegistered: return "Stake Not Registered"
             case .stakeNonZeroAccountBalance: return "Stake Non-Zero Account Balance"

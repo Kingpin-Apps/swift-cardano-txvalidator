@@ -267,4 +267,29 @@ struct LedgerArithmeticTests {
         #expect(view.lovelace == UInt64.max)
         #expect(view.multiAsset?.values.first?.values.first == UInt64.max)
     }
+
+    // MARK: - Metadata
+
+    @Test("Metadata holding a string longer than 64 bytes is InvalidMetadata from Allegra on, at any depth")
+    func metadataStringLimit() throws {
+        let long = String(repeating: "x", count: 65)
+        let nested = TransactionMetadatum.map(MapPairs([
+            (.text("ok"), .list(NestedList([.text(String(repeating: "y", count: 64)), .text(long)]))),
+        ]))
+        let auxiliaryData = AuxiliaryData(data: .metadata(try Metadata(from: .orderedDict([.uint(674): try nested.toPrimitive()]))))
+        let body = TransactionBody(
+            inputs: .list([input(0xA1)]),
+            outputs: [TransactionOutput(address: try address(1), amount: Value(coin: 2_000_000))],
+            fee: 200_000,
+            auxiliaryDataHash: try auxiliaryData.hash())
+        let tx = Transaction(transactionBody: body, transactionWitnessSet: TransactionWitnessSet(), auxiliaryData: auxiliaryData)
+
+        let issues = try AuxiliaryDataRule().validate(
+            transaction: tx, context: ValidationContext(era: .conway), protocolParams: try loadProtocolParams())
+        #expect(issues.filter { $0.kind == .invalidMetadata }.count == 1)
+        // The ledger did not check it in Shelley's first protocol version.
+        let shelley = try AuxiliaryDataRule().validate(
+            transaction: tx, context: ValidationContext(era: .shelley), protocolParams: try loadProtocolParams())
+        #expect(!shelley.contains { $0.kind == .invalidMetadata })
+    }
 }

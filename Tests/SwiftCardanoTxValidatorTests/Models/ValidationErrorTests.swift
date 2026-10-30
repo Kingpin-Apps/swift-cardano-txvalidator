@@ -62,7 +62,7 @@ struct ValidationErrorTests {
         .depositMismatch, .treasuryValueMismatch, .wrongWithdrawalAmount,
         .withdrawalNotDelegatedToDRep, .rewardAccountNotExisting,
         .cannotCheckStakeDeregistrationRefund, .cannotCheckDRepDeregistrationRefund,
-        .cannotCheckBalance, .cannotCheckCollateral, .chainLookupFailed,
+        .cannotCheckBalance, .cannotCheckCollateral, .chainLookupFailed, .invalidMetadata,
         .stakeAlreadyRegistered, .stakeNotRegistered, .stakeNonZeroAccountBalance,
         .stakePoolNotRegistered, .wrongRetirementEpoch, .stakePoolCostTooLow,
         .committeeIsUnknown, .committeeHasPreviouslyResigned, .poolAlreadyRegistered,
