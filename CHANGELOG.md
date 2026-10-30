@@ -1,3 +1,9 @@
+## 0.6.1 (2026-10-30)
+
+### Fix
+
+- **auxiliary-data**: reject metadata strings longer than 64 bytes as the ledger does
+
 ## 0.6.0 (2026-10-30)
 
 ### Feat
