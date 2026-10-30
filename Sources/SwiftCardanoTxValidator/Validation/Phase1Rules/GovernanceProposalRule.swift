@@ -164,18 +164,24 @@ private extension GovernanceProposalRule {
         context: ValidationContext,
         issues: inout [ValidationError]
     ) {
-        guard !context.govActionContexts.isEmpty else { return }
+        // A previous action is either one still proposed or the last one
+        // enacted for its purpose, so it may be in either list.
+        guard !context.govActionContexts.isEmpty || !context.lastEnactedGovAction.isEmpty else { return }
 
         let txId = "\(govActionId.transactionID)"
         let idx = govActionId.govActionIndex
 
-        if let existing = context.findGovActionContext(transactionId: txId, govActionIndex: idx) {
-            if existing.actionType != expectedType {
+        let existing = context.findGovActionContext(transactionId: txId, govActionIndex: idx)
+            ?? context.lastEnactedGovAction.first { $0.transactionId == txId && $0.govActionIndex == idx }
+        if let existing {
+            // An action whose body the chain no longer holds has no known
+            // type, so it cannot be shown to be the wrong one.
+            if let actionType = existing.actionType, actionType != expectedType {
                 issues.append(ValidationError(
                     kind: .invalidPrevGovActionId,
                     fieldPath: fieldPath,
                     message: "Previous governance action \(txId)#\(idx) has type "
-                        + "\(existing.actionType) but expected \(expectedType)."
+                        + "\(actionType) but expected \(expectedType)."
                 ))
             }
         } else {
