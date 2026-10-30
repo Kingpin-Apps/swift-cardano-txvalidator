@@ -1,3 +1,15 @@
+## 0.6.0 (2026-10-30)
+
+### Feat
+
+- build against swift-cardano-core 0.10 and check fees and collateral as the ledger does
+
+### Fix
+
+- refund the deposit paid and report checks and lookups that could not run
+- **governance**: find a previous action among the last enacted ones
+- **script-integrity**: hash redeemers and datums as written
+
 ## 0.5.0 (2026-10-07)
 
 ### Feat
