@@ -15,7 +15,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/Kingpin-Apps/swift-cardano-core.git", from: "0.11.0"),
-        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-chain.git", from: "0.16.3"),
+        .package(url: "https://github.com/Kingpin-Apps/swift-cardano-chain.git", from: "0.17.0"),
         .package(url: "https://github.com/Kingpin-Apps/swift-cardano-uplc.git", from: "0.8.3"),
         .package(url: "https://github.com/Kingpin-Apps/swift-nacl.git", .upToNextMinor(from: "2.0.0")),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.12.0"),
